@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-white text-slate-700 dark:bg-ink dark:text-slate-300;
+  }
+  ::selection {
+    @apply bg-signal-500/30;
+  }
+}
+
+@layer components {
+  .container-cairn {
+    @apply mx-auto w-full max-w-container px-5 sm:px-8;
+  }
+  .heading {
+    @apply font-display font-bold tracking-tight text-slate-900 dark:text-white;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-signal-500/30 bg-signal-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-signal-700 dark:text-signal-300;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-signal-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-signal-600/20 transition hover:bg-signal-500 hover:shadow-signal-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-ink;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5;
+  }
+  .surface-gradient {
+    background-image: radial-gradient(
+        60% 80% at 80% 0%,
+        rgba(20, 184, 166, 0.18),
+        transparent 60%
+      ),
+      radial-gradient(50% 60% at 0% 100%, rgba(45, 212, 191, 0.12), transparent 60%);
+  }
+}

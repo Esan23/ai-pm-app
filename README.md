@@ -21,6 +21,21 @@ Azure DevOps + Copilot is the closest overlap but is locked to the Microsoft/Git
 
 ---
 
+## Marketing Landing Page
+
+A front-end marketing site for Cairn lives at the repo root, built with **Vite + React 18 + TypeScript + Tailwind CSS** (self-hosted Inter + Sora fonts, Framer Motion, Heroicons, light/dark mode). Copy is grounded in the Problem-Aware avatar (Daniel Okafor) and the product concept.
+
+```bash
+npm install
+npm run dev      # local dev server (Vite)
+npm run build    # type-check + production build → dist/
+npm run preview  # preview the production build
+```
+
+Sections: hero (with a "scattered context → one legible plan" animation), the daily-tax problem, how it works (capture → deconstruct → track → next), features (incl. provider-agnostic AI attribution + Azure DevOps sync), social proof, pricing (Free / Pro / Enterprise), and a final CTA. The sign-up flow is front-end-only (simulated) — wire it to real auth / a waitlist before launch.
+
+**Deploy:** `netlify.toml` is configured (`npm run build` → publish `dist/`, SPA fallback, asset caching). Connect the repo to Netlify or drag-drop `dist/`.
+
 ## Repository Structure
 
 ```
@@ -28,6 +43,13 @@ Azure DevOps + Copilot is the closest overlap but is locked to the Microsoft/Git
 ├── README.md                          # This file
 ├── LICENSE
 ├── .gitignore
+├── index.html · vite.config.ts · tailwind.config.js · netlify.toml
+├── src/
+│   ├── App.tsx · main.tsx · index.css
+│   ├── hooks/useTheme.ts
+│   └── components/                     # Navbar, Hero, Problem, HowItWorks, Features,
+│       │                              # SocialProof, Pricing, FinalCTA, Footer, SignUpModal…
+│       └── ContextCollapseVisual.tsx   # signature hero animation
 └── docs/
     └── research/
         ├── avatar-problem-aware.md     # Problem-Aware customer avatar (Schwartz framework)
@@ -58,7 +80,8 @@ Azure DevOps + Copilot is the closest overlap but is locked to the Microsoft/Git
 - [ ] Remaining awareness-stage avatars (Schwartz set)
 - [ ] Product spec / PRD (feature set, MoSCoW scope)
 - [ ] Data model (hierarchy + provider-attribution schema)
-- [ ] React MVP scaffold
+- [x] Marketing landing page (Vite + React + Tailwind)
+- [ ] React app MVP scaffold (auth + project workspace)
 - [ ] Azure DevOps + MCP integration spike
 
 ---
