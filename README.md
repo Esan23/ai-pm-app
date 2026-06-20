@@ -40,7 +40,7 @@ A working MVP of the product, reachable from the landing "Open app" / "Start fre
 
 - **Portfolio → Project → User Story → Task** hierarchy with a project sidebar.
 - **Execution board** — a drag-and-drop Kanban (To do / In progress / Done) where every task carries **provider attribution** (Human / Claude / ChatGPT / Copilot / Gemini), the product's core differentiator. An **AI attribution** panel summarizes who/what shipped the work.
-- **Capture** — describe what you're building and Cairn deconstructs it into user stories + tasks. The deconstruction is a deterministic, client-side demo heuristic (`src/lib/capture.ts`) with no API key required; swap it for a real LLM call (e.g. a Netlify function) without touching the UI.
+- **Capture** — describe what you're building and Cairn deconstructs it into user stories + tasks. A **Netlify function** (`netlify/functions/capture.ts`) calls **Claude (`claude-opus-4-8`, forced tool-use for structured JSON)** to produce the backlog; the client (`src/lib/capture.ts`) calls it and **gracefully falls back to a local heuristic** when the function is unreachable (plain `vite dev`) or runs in demo mode (no `ANTHROPIC_API_KEY`). The preview labels each result "via Claude" or "demo heuristic". Set `ANTHROPIC_API_KEY` in the Netlify dashboard to enable the real model.
 - Runs entirely in **guest mode**, persisted to `localStorage` (`src/lib/store.ts`), so it's demoable with no backend. A "Reset" button restores the seed demo workspace.
 
 Routing is `react-router-dom` v7: `/` (landing) and `/app` (workspace, lazy-loaded).

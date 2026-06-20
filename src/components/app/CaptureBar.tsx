@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SparklesIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
-import { deconstruct, applyDeconstruction, type DeconstructedStory } from '../../lib/capture'
+import {
+  requestDeconstruction,
+  applyDeconstruction,
+  type DeconstructedStory,
+  type CaptureSource,
+} from '../../lib/capture'
 import { ProviderBadge } from './ProviderBadge'
 
 interface CaptureBarProps {
@@ -14,11 +19,20 @@ const EXAMPLE =
 export function CaptureBar({ projectId }: CaptureBarProps) {
   const [text, setText] = useState('')
   const [preview, setPreview] = useState<DeconstructedStory[] | null>(null)
+  const [source, setSource] = useState<CaptureSource>('demo')
+  const [loading, setLoading] = useState(false)
 
-  const run = () => {
+  const run = async () => {
     const value = text.trim()
-    if (!value) return
-    setPreview(deconstruct(value))
+    if (!value || loading) return
+    setLoading(true)
+    try {
+      const result = await requestDeconstruction(value)
+      setPreview(result.stories)
+      setSource(result.source)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const accept = () => {
@@ -34,7 +48,7 @@ export function CaptureBar({ projectId }: CaptureBarProps) {
         <SparklesIcon className="h-5 w-5 text-signal-500" />
         Capture
         <span className="rounded-full bg-signal-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-signal-600 dark:text-signal-300">
-          AI demo
+          AI
         </span>
       </div>
       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -53,8 +67,19 @@ export function CaptureBar({ projectId }: CaptureBarProps) {
           className="flex-1 resize-none rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-signal-500 focus:ring-2 focus:ring-signal-500/30 dark:border-white/15 dark:bg-white/5 dark:text-white"
         />
         <div className="flex gap-2 sm:flex-col">
-          <button onClick={run} className="btn-primary flex-1 px-4 py-2 text-sm sm:flex-none">
-            Deconstruct
+          <button
+            onClick={run}
+            disabled={loading}
+            className="btn-primary flex-1 px-4 py-2 text-sm sm:flex-none disabled:opacity-60"
+          >
+            {loading ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                Thinking…
+              </>
+            ) : (
+              'Deconstruct'
+            )}
           </button>
           <button
             onClick={() => setText(EXAMPLE)}
@@ -75,8 +100,17 @@ export function CaptureBar({ projectId }: CaptureBarProps) {
             className="overflow-hidden"
           >
             <div className="mt-4 space-y-2 border-t border-slate-100 pt-4 dark:border-white/5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Proposed — {preview.length} {preview.length === 1 ? 'story' : 'stories'}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] ${
+                    source === 'ai'
+                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300'
+                      : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
+                  }`}
+                >
+                  {source === 'ai' ? 'via Claude' : 'demo heuristic'}
+                </span>
               </p>
               {preview.map((s, i) => (
                 <div
