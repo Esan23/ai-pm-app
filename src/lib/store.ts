@@ -9,6 +9,7 @@ import type {
   Workspace,
 } from './types'
 import { seedWorkspace } from './seed'
+import { supabase } from './supabase'
 
 const KEY = 'cairn-workspace-v1'
 
@@ -32,12 +33,66 @@ function load(): Workspace {
 let state: Workspace = load()
 const listeners = new Set<() => void>()
 
-function persist() {
+// ---- Remote sync (Supabase, when signed in) ---------------------------
+// Guest mode (no syncUserId) is unchanged: localStorage only. When a user
+// signs in, the whole workspace is mirrored to a single jsonb row per user.
+let syncUserId: string | null = null
+let remoteTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleRemoteSave() {
+  if (!syncUserId || !supabase) return
+  if (remoteTimer) clearTimeout(remoteTimer)
+  remoteTimer = setTimeout(saveRemote, 800)
+}
+
+async function saveRemote() {
+  if (!syncUserId || !supabase) return
+  try {
+    await supabase
+      .from('workspaces')
+      .upsert({ user_id: syncUserId, data: state, updated_at: new Date().toISOString() })
+  } catch {
+    /* offline / transient — local cache still holds the data */
+  }
+}
+
+/**
+ * Switch persistence to a signed-in user's remote workspace (or back to guest).
+ * On first sign-in with no remote row, the current local workspace is migrated up.
+ */
+export async function setSyncUser(userId: string | null) {
+  syncUserId = userId
+  if (!userId || !supabase) return
+  try {
+    const { data } = await supabase
+      .from('workspaces')
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (data?.data && (data.data as Workspace).portfolios) {
+      state = data.data as Workspace
+      persistLocal()
+      listeners.forEach((l) => l())
+    } else {
+      // No remote workspace yet — seed it from whatever is local.
+      await saveRemote()
+    }
+  } catch {
+    /* fall back to local state */
+  }
+}
+
+function persistLocal() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
   } catch {
     /* storage full / unavailable — keep in-memory */
   }
+}
+
+function persist() {
+  persistLocal()
+  scheduleRemoteSave()
 }
 
 function emit() {

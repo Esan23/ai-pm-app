@@ -43,7 +43,16 @@ A working MVP of the product, reachable from the landing "Open app" / "Start fre
 - **Capture** — describe what you're building and Cairn deconstructs it into user stories + tasks. A **Netlify function** (`netlify/functions/capture.ts`) calls **Claude (`claude-opus-4-8`, forced tool-use for structured JSON)** to produce the backlog; the client (`src/lib/capture.ts`) calls it and **gracefully falls back to a local heuristic** when the function is unreachable (plain `vite dev`) or runs in demo mode (no `ANTHROPIC_API_KEY`). The preview labels each result "via Claude" or "demo heuristic". Set `ANTHROPIC_API_KEY` in the Netlify dashboard to enable the real model.
 - Runs entirely in **guest mode**, persisted to `localStorage` (`src/lib/store.ts`), so it's demoable with no backend. A "Reset" button restores the seed demo workspace.
 
-Routing is `react-router-dom` v7: `/` (landing) and `/app` (workspace, lazy-loaded).
+Routing is `react-router-dom` v7: `/` (landing), `/app` (workspace), `/auth/callback` (magic-link return) — all lazy-loaded.
+
+## Auth + cloud persistence (Supabase)
+
+Optional and **off by default** — the app is fully usable as a guest. When `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set, the workspace syncs to a signed-in account:
+
+- **Magic-link auth** (`src/lib/auth.tsx`, `src/lib/supabase.ts`) — passwordless email sign-in via `signInWithOtp`. The header shows "Sign in" / the signed-in email; unconfigured builds show the guest badge and no sign-in.
+- **Per-user persistence** — `src/lib/store.ts` mirrors the whole workspace to a single `workspaces` JSONB row per user (schema + RLS in `supabase/migrations/0001_workspaces.sql`). On first sign-in the local guest workspace is migrated up; guest mode (no user) is unchanged (localStorage only). Supabase is code-split into its own chunk, so the landing bundle is unaffected.
+
+**To enable (one-time):** create a Supabase project → run `supabase/migrations/0001_workspaces.sql` → in Netlify set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the publishable/anon key) → in Supabase **Authentication → URL Configuration**, set the Site URL and add `https://cairnpmai.netlify.app/auth/callback` (and `http://localhost:5180/auth/callback` for local) to the redirect allow-list.
 
 **Deploy:** `netlify.toml` is configured (`npm run build` → publish `dist/`, SPA fallback, asset caching). Connect the repo to Netlify or drag-drop `dist/`.
 
@@ -93,7 +102,8 @@ Routing is `react-router-dom` v7: `/` (landing) and `/app` (workspace, lazy-load
 - [ ] Data model (hierarchy + provider-attribution schema)
 - [x] Marketing landing page (Vite + React + Tailwind)
 - [x] App MVP scaffold — /app workspace (hierarchy, Kanban, AI capture, attribution) in guest mode
-- [ ] Real auth + persistence (Supabase) and a server-side LLM capture function
+- [x] Server-side LLM capture (Claude via a Netlify function, demo fallback)
+- [x] Auth + cloud persistence code (Supabase magic-link + per-user workspace; guest fallback) — needs a project + env vars to activate
 - [ ] Azure DevOps + MCP integration spike
 
 ---

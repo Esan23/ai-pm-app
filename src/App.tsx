@@ -2,8 +2,9 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 
-// Code-split the workspace so the landing page ships a lean bundle.
+// Code-split the workspace + auth so the landing page ships a lean bundle.
 const AppPage = lazy(() => import('./pages/AppPage'))
+const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 
 function AppLoading() {
   return (
@@ -26,6 +27,14 @@ export default function App() {
           element={
             <Suspense fallback={<AppLoading />}>
               <AppPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/callback"
+          element={
+            <Suspense fallback={<AppLoading />}>
+              <AuthCallback />
             </Suspense>
           }
         />

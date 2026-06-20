@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useWorkspace } from '../lib/store'
+import { useWorkspace, setSyncUser } from '../lib/store'
+import { AuthProvider, useAuth } from '../lib/auth'
 import { AppHeader } from '../components/app/AppHeader'
 import { ProjectSidebar } from '../components/app/ProjectSidebar'
 import { CaptureBar } from '../components/app/CaptureBar'
@@ -8,8 +9,22 @@ import { KanbanBoard } from '../components/app/KanbanBoard'
 import { AttributionSummary } from '../components/app/AttributionSummary'
 
 export default function AppPage() {
+  return (
+    <AuthProvider>
+      <Workspace />
+    </AuthProvider>
+  )
+}
+
+function Workspace() {
   const ws = useWorkspace()
+  const { user } = useAuth()
   const [activeId, setActiveId] = useState<string | null>(ws.projects[0]?.id ?? null)
+
+  // Switch persistence between guest (localStorage) and the signed-in user's remote workspace.
+  useEffect(() => {
+    setSyncUser(user?.id ?? null)
+  }, [user])
 
   // Keep selection valid as projects are added/removed.
   useEffect(() => {
