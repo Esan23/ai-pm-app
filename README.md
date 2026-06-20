@@ -34,6 +34,17 @@ npm run preview  # preview the production build
 
 Sections: hero (with a "scattered context → one legible plan" animation), the daily-tax problem, how it works (capture → deconstruct → track → next), features (incl. provider-agnostic AI attribution + Azure DevOps sync), social proof, pricing (Free / Pro / Enterprise), and a final CTA. The sign-up flow is front-end-only (simulated) — wire it to real auth / a waitlist before launch.
 
+## App Workspace (`/app`)
+
+A working MVP of the product, reachable from the landing "Open app" / "Start free" CTAs and code-split into its own bundle:
+
+- **Portfolio → Project → User Story → Task** hierarchy with a project sidebar.
+- **Execution board** — a drag-and-drop Kanban (To do / In progress / Done) where every task carries **provider attribution** (Human / Claude / ChatGPT / Copilot / Gemini), the product's core differentiator. An **AI attribution** panel summarizes who/what shipped the work.
+- **Capture** — describe what you're building and Cairn deconstructs it into user stories + tasks. The deconstruction is a deterministic, client-side demo heuristic (`src/lib/capture.ts`) with no API key required; swap it for a real LLM call (e.g. a Netlify function) without touching the UI.
+- Runs entirely in **guest mode**, persisted to `localStorage` (`src/lib/store.ts`), so it's demoable with no backend. A "Reset" button restores the seed demo workspace.
+
+Routing is `react-router-dom` v7: `/` (landing) and `/app` (workspace, lazy-loaded).
+
 **Deploy:** `netlify.toml` is configured (`npm run build` → publish `dist/`, SPA fallback, asset caching). Connect the repo to Netlify or drag-drop `dist/`.
 
 ## Repository Structure
@@ -81,7 +92,8 @@ Sections: hero (with a "scattered context → one legible plan" animation), the 
 - [ ] Product spec / PRD (feature set, MoSCoW scope)
 - [ ] Data model (hierarchy + provider-attribution schema)
 - [x] Marketing landing page (Vite + React + Tailwind)
-- [ ] React app MVP scaffold (auth + project workspace)
+- [x] App MVP scaffold — /app workspace (hierarchy, Kanban, AI capture, attribution) in guest mode
+- [ ] Real auth + persistence (Supabase) and a server-side LLM capture function
 - [ ] Azure DevOps + MCP integration spike
 
 ---

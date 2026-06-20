@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { Logo } from './Logo'
@@ -69,12 +70,11 @@ export function SignUpModal() {
                   You&apos;re on the list.
                 </h3>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Thanks — we&apos;ll be in touch at <span className="font-medium">{email}</span> when
-                  Cairn opens up.
+                  Your workspace is ready — jump in and turn a description into a plan.
                 </p>
-                <button onClick={close} className="btn-primary mt-6 w-full">
-                  Done
-                </button>
+                <Link to="/app" onClick={close} className="btn-primary mt-6 w-full">
+                  Open the workspace →
+                </Link>
               </div>
             ) : (
               <>

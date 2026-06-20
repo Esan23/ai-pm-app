@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Bars3Icon, MoonIcon, SunIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { Logo } from './Logo'
 import { useTheme } from '../hooks/useTheme'
@@ -55,6 +56,12 @@ export function Navbar() {
           >
             {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
           </button>
+          <Link
+            to="/app"
+            className="hidden text-sm font-medium text-slate-600 transition hover:text-slate-900 sm:inline dark:text-slate-300 dark:hover:text-white"
+          >
+            Open app
+          </Link>
           <a href="#start" className="btn-primary hidden sm:inline-flex">
             Start free
           </a>
@@ -81,6 +88,13 @@ export function Navbar() {
                 {l.label}
               </a>
             ))}
+            <Link
+              to="/app"
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
+            >
+              Open app
+            </Link>
             <a href="#start" onClick={() => setOpen(false)} className="btn-primary mt-2">
               Start free
             </a>
