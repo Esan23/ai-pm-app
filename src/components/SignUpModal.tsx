@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, CheckCircleIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 import { Logo } from './Logo'
 
-/** Front-end-only sign-up, opened by any CTA via the #start URL hash. */
+type Result = 'magic' | 'sim'
+
+/**
+ * Sign-up, opened by any CTA via the #start URL hash. Uses real Supabase
+ * magic-link auth when configured (Supabase is dynamically imported on submit
+ * so it stays out of the landing bundle); falls back to a simulated success
+ * that opens the guest workspace when unconfigured.
+ */
 export function SignUpModal() {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
-  const [done, setDone] = useState(false)
+  const [result, setResult] = useState<Result | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const sync = () => setOpen(window.location.hash === '#start')
@@ -20,7 +29,10 @@ export function SignUpModal() {
   const close = () => {
     history.pushState('', document.title, window.location.pathname + window.location.search)
     setOpen(false)
-    setTimeout(() => setDone(false), 200)
+    setTimeout(() => {
+      setResult(null)
+      setError(null)
+    }, 200)
   }
 
   useEffect(() => {
@@ -29,11 +41,30 @@ export function SignUpModal() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) return
-    // Simulated — wire to real auth / waitlist before launch.
-    setDone(true)
+    const value = email.trim()
+    if (!value || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      // Dynamic import keeps @supabase/supabase-js out of the landing bundle.
+      const { supabase, isSupabaseConfigured } = await import('../lib/supabase')
+      if (isSupabaseConfigured && supabase) {
+        const { error: err } = await supabase.auth.signInWithOtp({
+          email: value,
+          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        })
+        if (err) throw err
+        setResult('magic')
+      } else {
+        setResult('sim')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -63,14 +94,28 @@ export function SignUpModal() {
               <XMarkIcon className="h-5 w-5" />
             </button>
 
-            {done ? (
-              <div className="py-6 text-center">
+            {result === 'magic' ? (
+              <div className="py-4 text-center">
                 <CheckCircleIcon className="mx-auto h-12 w-12 text-signal-500" />
                 <h3 className="mt-4 font-display text-xl font-semibold text-slate-900 dark:text-white">
-                  You&apos;re on the list.
+                  Check your email
                 </h3>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Your workspace is ready — jump in and turn a description into a plan.
+                  We sent a magic sign-in link to <span className="font-medium">{email}</span>. Open
+                  it to start — your workspace will sync to your account.
+                </p>
+                <button onClick={close} className="btn-ghost mt-6 w-full">
+                  Done
+                </button>
+              </div>
+            ) : result === 'sim' ? (
+              <div className="py-4 text-center">
+                <CheckCircleIcon className="mx-auto h-12 w-12 text-signal-500" />
+                <h3 className="mt-4 font-display text-xl font-semibold text-slate-900 dark:text-white">
+                  You&apos;re in.
+                </h3>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  Your guest workspace is ready — jump in and turn a description into a plan.
                 </p>
                 <Link to="/app" onClick={close} className="btn-primary mt-6 w-full">
                   Open the workspace →
@@ -83,24 +128,36 @@ export function SignUpModal() {
                   Start free
                 </h3>
                 <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
-                  Get your first project legible in minutes. No credit card.
+                  Get your first project legible in minutes. No password, no credit card.
                 </p>
                 <form onSubmit={submit} className="mt-5 space-y-3">
-                  <input
-                    type="email"
-                    required
-                    autoFocus
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-signal-500 focus:ring-2 focus:ring-signal-500/30 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                  />
-                  <button type="submit" className="btn-primary w-full">
-                    Get started
+                  <div className="relative">
+                    <EnvelopeIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      autoFocus
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@company.com"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition focus:border-signal-500 focus:ring-2 focus:ring-signal-500/30 dark:border-white/15 dark:bg-white/5 dark:text-white"
+                    />
+                  </div>
+                  {error && (
+                    <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-300">
+                      {error}
+                    </p>
+                  )}
+                  <button type="submit" disabled={busy} className="btn-primary w-full disabled:opacity-60">
+                    {busy ? 'Sending…' : 'Get started'}
                   </button>
                 </form>
                 <p className="mt-4 text-center text-xs text-slate-400">
-                  Demo sign-up — front-end only. No data is sent anywhere.
+                  You can also{' '}
+                  <Link to="/app" onClick={close} className="font-medium text-signal-600 hover:underline dark:text-signal-400">
+                    explore as a guest
+                  </Link>{' '}
+                  first.
                 </p>
               </>
             )}
