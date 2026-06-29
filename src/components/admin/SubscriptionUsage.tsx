@@ -1,4 +1,5 @@
-import { can, PLANS, SEED_SUBSCRIPTIONS, SEED_USAGE, usd, type AdminRoleKey, type SubStatus } from '../../lib/admin'
+import { can, PLANS, SEED_USAGE, usd, type AdminRoleKey, type SubStatus } from '../../lib/admin'
+import { useAdminData } from '../../lib/adminStore'
 
 const subStatus: Record<SubStatus, string> = {
   active: 'bg-success/10 text-success',
@@ -8,6 +9,7 @@ const subStatus: Record<SubStatus, string> = {
 }
 
 export function SubscriptionUsage({ role }: { role: AdminRoleKey }) {
+  const { subscriptions } = useAdminData()
   const canManage = can(role, 'manage:plans')
   const totalCaptures = SEED_USAGE.reduce((a, u) => a + u.captures, 0)
 
@@ -59,7 +61,7 @@ export function SubscriptionUsage({ role }: { role: AdminRoleKey }) {
             </tr>
           </thead>
           <tbody>
-            {SEED_SUBSCRIPTIONS.map((s) => (
+            {subscriptions.map((s) => (
               <tr key={s.id} className="border-b border-slate-100 dark:border-white/5">
                 <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{s.workspace}</td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{s.plan}</td>

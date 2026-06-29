@@ -159,6 +159,7 @@ export const SEED_USERS: AdminUser[] = [
   { id: 'u4', name: 'Alex Rivera', email: 'alex@northwind.ai', workspace: 'Northwind', plan: 'Enterprise', adminRole: null, status: 'active', lastActive: '2026-06-26', providers: ['Claude', 'ChatGPT', 'Copilot', 'Gemini'] },
   { id: 'u5', name: 'Sam Cole', email: 'sam@orbital.app', workspace: 'Orbital', plan: 'Free', adminRole: null, status: 'pending', lastActive: '2026-06-20', providers: ['ChatGPT'] },
   { id: 'u6', name: 'Jordan Lee', email: 'jordan@kestrel.dev', workspace: 'Kestrel', plan: 'Free', adminRole: null, status: 'suspended', lastActive: '2026-05-30', providers: ['Gemini'] },
+  { id: 'u0', name: 'Avery Stone', email: 'avery@cairn.app', workspace: 'Cairn (internal)', plan: 'Enterprise', adminRole: 'super_admin', status: 'active', lastActive: '2026-06-28', providers: ['Claude'] },
   { id: 'u7', name: 'Robin Avery', email: 'robin@cairn.app', workspace: 'Cairn (internal)', plan: 'Enterprise', adminRole: 'platform_admin', status: 'active', lastActive: '2026-06-28', providers: ['Claude'] },
   { id: 'u8', name: 'Casey Kim', email: 'casey@cairn.app', workspace: 'Cairn (internal)', plan: 'Enterprise', adminRole: 'support_admin', status: 'active', lastActive: '2026-06-28', providers: ['Claude'] },
   { id: 'u9', name: 'Morgan Diaz', email: 'morgan@cairn.app', workspace: 'Cairn (internal)', plan: 'Enterprise', adminRole: 'billing_admin', status: 'active', lastActive: '2026-06-27', providers: ['Claude'] },

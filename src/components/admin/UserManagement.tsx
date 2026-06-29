@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { XMarkIcon, NoSymbolIcon, CheckCircleIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, NoSymbolIcon, CheckCircleIcon, PaperAirplaneIcon, PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import { ProviderBadge } from '../app/ProviderBadge'
-import { can, ROLES, SEED_USERS, type AdminRoleKey, type AdminUser, type UserStatus } from '../../lib/admin'
+import { can, ROLES, type AdminRoleKey, type PlanName, type UserStatus } from '../../lib/admin'
+import { useAdminData, createUser, updateUser, setUserStatus, resendInvite } from '../../lib/adminStore'
 
 const statusStyles: Record<UserStatus, string> = {
   active: 'bg-success/10 text-success',
@@ -9,14 +10,21 @@ const statusStyles: Record<UserStatus, string> = {
   pending: 'bg-warning/10 text-warning',
 }
 
-export function UserManagement({ role, search }: { role: AdminRoleKey; search: string }) {
-  const [users, setUsers] = useState<AdminUser[]>(SEED_USERS)
+const ADMIN_ROLE_OPTIONS: (AdminRoleKey | 'member')[] = ['member', 'support_admin', 'billing_admin', 'platform_admin', 'super_admin']
+
+export function UserManagement({ role, actor, search }: { role: AdminRoleKey; actor: string; search: string }) {
+  const { users } = useAdminData()
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
   const [planFilter, setPlanFilter] = useState<string>('all')
-  const [selected, setSelected] = useState<AdminUser | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
 
+  const canCreate = can(role, 'create:users')
   const canUpdate = can(role, 'update:users')
   const canSuspend = can(role, 'suspend:users')
+
+  const selected = users.find((u) => u.id === selectedId) ?? null
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -28,24 +36,26 @@ export function UserManagement({ role, search }: { role: AdminRoleKey; search: s
     })
   }, [users, statusFilter, planFilter, search])
 
-  const setStatus = (id: string, status: UserStatus) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status } : u)))
-    setSelected((s) => (s && s.id === id ? { ...s, status } : s))
+  const suspend = (id: string, name: string) => {
+    if (canSuspend && confirm(`Suspend ${name}? They will lose access until reactivated.`)) {
+      setUserStatus(id, 'suspended', actor)
+    }
   }
-
-  const suspend = (u: AdminUser) => {
-    if (!canSuspend) return
-    if (confirm(`Suspend ${u.name}? They will lose access until reactivated.`)) setStatus(u.id, 'suspended')
-  }
-  const activate = (u: AdminUser) => canSuspend && setStatus(u.id, 'active')
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-h3 font-bold text-slate-900 dark:text-white">User management</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {filtered.length} of {users.length} users{search ? ` · matching “${search}”` : ''}
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-h3 font-bold text-slate-900 dark:text-white">User management</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {filtered.length} of {users.length} users{search ? ` · matching “${search}”` : ''}
+          </p>
+        </div>
+        {canCreate && (
+          <button onClick={() => setShowCreate(true)} className="btn-primary gap-2">
+            <PlusIcon className="h-4 w-4" /> New user
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -81,7 +91,7 @@ export function UserManagement({ role, search }: { role: AdminRoleKey; search: s
             {filtered.map((u) => (
               <tr
                 key={u.id}
-                onClick={() => setSelected(u)}
+                onClick={() => { setSelectedId(u.id); setEditing(false) }}
                 className="cursor-pointer border-b border-slate-100 transition hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5"
               >
                 <td className="px-4 py-3">
@@ -90,21 +100,15 @@ export function UserManagement({ role, search }: { role: AdminRoleKey; search: s
                 </td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.workspace}</td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.plan}</td>
-                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                  {u.adminRole ? ROLES[u.adminRole].displayName : 'Member'}
-                </td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.adminRole ? ROLES[u.adminRole].displayName : 'Member'}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[u.status]}`}>
-                    {u.status}
-                  </span>
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[u.status]}`}>{u.status}</span>
                 </td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{u.lastActive}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">No users match your filters.</td>
-              </tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400">No users match your filters.</td></tr>
             )}
           </tbody>
         </table>
@@ -113,67 +117,184 @@ export function UserManagement({ role, search }: { role: AdminRoleKey; search: s
       {/* Detail drawer */}
       {selected && (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedId(null)} />
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-slate-200 bg-white dark:border-white/10 dark:bg-ink">
             <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-white/10">
               <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">User detail</h2>
-              <button onClick={() => setSelected(null)} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
+              <button onClick={() => setSelectedId(null)} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
+
             <div className="space-y-5 p-5">
               <div>
                 <p className="font-display text-h5 font-bold text-slate-900 dark:text-white">{selected.name}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{selected.email}</p>
-                <span className={`mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[selected.status]}`}>
-                  {selected.status}
-                </span>
+                <span className={`mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[selected.status]}`}>{selected.status}</span>
               </div>
 
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <div><dt className="text-slate-400">Workspace</dt><dd className="text-slate-700 dark:text-slate-200">{selected.workspace}</dd></div>
-                <div><dt className="text-slate-400">Plan</dt><dd className="text-slate-700 dark:text-slate-200">{selected.plan}</dd></div>
-                <div><dt className="text-slate-400">Admin role</dt><dd className="text-slate-700 dark:text-slate-200">{selected.adminRole ? ROLES[selected.adminRole].displayName : 'Member'}</dd></div>
-                <div><dt className="text-slate-400">Last active</dt><dd className="text-slate-700 dark:text-slate-200">{selected.lastActive}</dd></div>
-              </dl>
+              {editing && canUpdate ? (
+                <EditForm
+                  key={selected.id}
+                  initial={{ name: selected.name, plan: selected.plan, adminRole: selected.adminRole }}
+                  onCancel={() => setEditing(false)}
+                  onSave={(patch) => { updateUser(selected.id, patch, actor); setEditing(false) }}
+                />
+              ) : (
+                <>
+                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                    <div><dt className="text-slate-400">Workspace</dt><dd className="text-slate-700 dark:text-slate-200">{selected.workspace}</dd></div>
+                    <div><dt className="text-slate-400">Plan</dt><dd className="text-slate-700 dark:text-slate-200">{selected.plan}</dd></div>
+                    <div><dt className="text-slate-400">Admin role</dt><dd className="text-slate-700 dark:text-slate-200">{selected.adminRole ? ROLES[selected.adminRole].displayName : 'Member'}</dd></div>
+                    <div><dt className="text-slate-400">Last active</dt><dd className="text-slate-700 dark:text-slate-200">{selected.lastActive}</dd></div>
+                  </dl>
 
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI providers used</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {selected.providers.map((p) => (
-                    <ProviderBadge key={p} provider={p} />
-                  ))}
-                </div>
-              </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI providers used</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {selected.providers.length ? selected.providers.map((p) => <ProviderBadge key={p} provider={p} />) : <span className="text-sm text-slate-400">None yet</span>}
+                    </div>
+                  </div>
 
-              {/* Actions (role-gated) */}
-              <div className="space-y-2 border-t border-slate-100 pt-5 dark:border-white/5">
-                {!canUpdate && !canSuspend && (
-                  <p className="text-sm text-slate-400">Your role has read-only access to users.</p>
-                )}
-                {selected.status === 'pending' && canUpdate && (
-                  <button
-                    onClick={() => alert(`Magic-link invite re-sent to ${selected.email}`)}
-                    className="btn-ghost w-full justify-start gap-2"
-                  >
-                    <PaperAirplaneIcon className="h-4 w-4" /> Resend magic-link invite
-                  </button>
-                )}
-                {canSuspend && selected.status !== 'suspended' && (
-                  <button onClick={() => suspend(selected)} className="btn-ghost w-full justify-start gap-2 text-error">
-                    <NoSymbolIcon className="h-4 w-4" /> Suspend user
-                  </button>
-                )}
-                {canSuspend && selected.status === 'suspended' && (
-                  <button onClick={() => activate(selected)} className="btn-ghost w-full justify-start gap-2 text-success">
-                    <CheckCircleIcon className="h-4 w-4" /> Reactivate user
-                  </button>
-                )}
-              </div>
+                  <div className="space-y-2 border-t border-slate-100 pt-5 dark:border-white/5">
+                    {!canUpdate && !canSuspend && <p className="text-sm text-slate-400">Your role has read-only access to users.</p>}
+                    {canUpdate && (
+                      <button onClick={() => setEditing(true)} className="btn-ghost w-full justify-start gap-2">
+                        <PencilSquareIcon className="h-4 w-4" /> Edit user
+                      </button>
+                    )}
+                    {selected.status === 'pending' && canUpdate && (
+                      <button onClick={() => { resendInvite(selected.id, actor); alert(`Magic-link invite re-sent to ${selected.email}`) }} className="btn-ghost w-full justify-start gap-2">
+                        <PaperAirplaneIcon className="h-4 w-4" /> Resend magic-link invite
+                      </button>
+                    )}
+                    {canSuspend && selected.status !== 'suspended' && (
+                      <button onClick={() => suspend(selected.id, selected.name)} className="btn-ghost w-full justify-start gap-2 text-error">
+                        <NoSymbolIcon className="h-4 w-4" /> Suspend user
+                      </button>
+                    )}
+                    {canSuspend && selected.status === 'suspended' && (
+                      <button onClick={() => setUserStatus(selected.id, 'active', actor)} className="btn-ghost w-full justify-start gap-2 text-success">
+                        <CheckCircleIcon className="h-4 w-4" /> Reactivate user
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         </div>
       )}
+
+      {/* Create modal */}
+      {showCreate && (
+        <CreateModal
+          onClose={() => setShowCreate(false)}
+          onCreate={(input) => { createUser(input, actor); setShowCreate(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function EditForm({
+  initial, onSave, onCancel,
+}: {
+  initial: { name: string; plan: PlanName; adminRole: AdminRoleKey | null }
+  onSave: (patch: { name: string; plan: PlanName; adminRole: AdminRoleKey | null }) => void
+  onCancel: () => void
+}) {
+  const [name, setName] = useState(initial.name)
+  const [plan, setPlan] = useState<PlanName>(initial.plan)
+  const [roleSel, setRoleSel] = useState<AdminRoleKey | 'member'>(initial.adminRole ?? 'member')
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim(), plan, adminRole: roleSel === 'member' ? null : roleSel }) }}
+      className="space-y-3 border-t border-slate-100 pt-5 dark:border-white/5"
+    >
+      <label className="block text-sm">
+        <span className="text-slate-500 dark:text-slate-400">Name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} required className="input-field mt-1" />
+      </label>
+      <label className="block text-sm">
+        <span className="text-slate-500 dark:text-slate-400">Plan</span>
+        <select value={plan} onChange={(e) => setPlan(e.target.value as PlanName)} className="input-field mt-1">
+          <option>Free</option><option>Pro</option><option>Enterprise</option>
+        </select>
+      </label>
+      <label className="block text-sm">
+        <span className="text-slate-500 dark:text-slate-400">Admin role</span>
+        <select value={roleSel} onChange={(e) => setRoleSel(e.target.value as AdminRoleKey | 'member')} className="input-field mt-1">
+          {ADMIN_ROLE_OPTIONS.map((r) => (
+            <option key={r} value={r}>{r === 'member' ? 'Member' : ROLES[r].displayName}</option>
+          ))}
+        </select>
+      </label>
+      <div className="flex gap-2 pt-1">
+        <button type="submit" className="btn-primary flex-1">Save changes</button>
+        <button type="button" onClick={onCancel} className="btn-ghost">Cancel</button>
+      </div>
+    </form>
+  )
+}
+
+function CreateModal({
+  onClose, onCreate,
+}: {
+  onClose: () => void
+  onCreate: (input: { name: string; email: string; workspace: string; plan: PlanName; adminRole: AdminRoleKey | null }) => void
+}) {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [workspace, setWorkspace] = useState('')
+  const [plan, setPlan] = useState<PlanName>('Free')
+  const [roleSel, setRoleSel] = useState<AdminRoleKey | 'member'>('member')
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="card relative w-full max-w-md p-6">
+        <h2 className="font-display text-h5 font-bold text-slate-900 dark:text-white">Create user</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">A magic-link invite is sent on creation.</p>
+        <form
+          onSubmit={(e) => { e.preventDefault(); onCreate({ name: name.trim(), email: email.trim(), workspace: workspace.trim() || 'New workspace', plan, adminRole: roleSel === 'member' ? null : roleSel }) }}
+          className="mt-5 space-y-3 text-sm"
+        >
+          <label className="block">
+            <span className="text-slate-500 dark:text-slate-400">Full name</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} required className="input-field mt-1" />
+          </label>
+          <label className="block">
+            <span className="text-slate-500 dark:text-slate-400">Work email</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="input-field mt-1" />
+          </label>
+          <label className="block">
+            <span className="text-slate-500 dark:text-slate-400">Workspace</span>
+            <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} className="input-field mt-1" placeholder="e.g. Helios" />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-slate-500 dark:text-slate-400">Plan</span>
+              <select value={plan} onChange={(e) => setPlan(e.target.value as PlanName)} className="input-field mt-1">
+                <option>Free</option><option>Pro</option><option>Enterprise</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-slate-500 dark:text-slate-400">Admin role</span>
+              <select value={roleSel} onChange={(e) => setRoleSel(e.target.value as AdminRoleKey | 'member')} className="input-field mt-1">
+                {ADMIN_ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r}>{r === 'member' ? 'Member' : ROLES[r].displayName}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button type="submit" className="btn-primary flex-1">Create & invite</button>
+            <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

@@ -1,10 +1,12 @@
 import { Fragment } from 'react'
 import { CheckIcon, MinusIcon } from '@heroicons/react/24/outline'
-import { ALL_PERMISSIONS, ROLES, SEED_AUDIT, can, type AdminRoleKey } from '../../lib/admin'
+import { ALL_PERMISSIONS, ROLES, can, type AdminRoleKey } from '../../lib/admin'
+import { useAdminData } from '../../lib/adminStore'
 
 const roleOrder: AdminRoleKey[] = ['super_admin', 'platform_admin', 'billing_admin', 'support_admin', 'auditor']
 
 export function SecurityCompliance({ role }: { role: AdminRoleKey }) {
+  const { audit } = useAdminData()
   const canExport = can(role, 'export:audit_logs')
 
   return (
@@ -73,7 +75,7 @@ export function SecurityCompliance({ role }: { role: AdminRoleKey }) {
             </tr>
           </thead>
           <tbody>
-            {SEED_AUDIT.map((a) => (
+            {audit.map((a) => (
               <tr key={a.id} className="border-b border-slate-100 dark:border-white/5">
                 <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{a.actor}</td>
                 <td className="px-4 py-3"><span className="font-mono text-xs text-signal-700 dark:text-signal-300">{a.action}</span></td>

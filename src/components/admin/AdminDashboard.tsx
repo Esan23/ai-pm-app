@@ -1,5 +1,6 @@
 import { UsersIcon, BuildingOffice2Icon, BanknotesIcon, CpuChipIcon } from '@heroicons/react/24/outline'
-import { SEED_USERS, SEED_SUBSCRIPTIONS, SEED_USAGE, SEED_AUDIT, usd } from '../../lib/admin'
+import { SEED_USAGE, usd } from '../../lib/admin'
+import { useAdminData } from '../../lib/adminStore'
 
 const providerColor: Record<string, string> = {
   Claude: 'bg-attribution-claude-500',
@@ -9,15 +10,16 @@ const providerColor: Record<string, string> = {
 }
 
 export function AdminDashboard() {
-  const totalUsers = SEED_USERS.length
-  const activeWorkspaces = new Set(SEED_SUBSCRIPTIONS.map((s) => s.workspace)).size
-  const mrr = SEED_SUBSCRIPTIONS.reduce((a, s) => a + s.mrr, 0)
+  const { users, subscriptions, audit } = useAdminData()
+  const totalUsers = users.length
+  const activeWorkspaces = new Set(subscriptions.map((s) => s.workspace)).size
+  const mrr = subscriptions.reduce((a, s) => a + s.mrr, 0)
   const aiSpend = SEED_USAGE.reduce((a, u) => a + u.cost, 0)
   const maxCost = Math.max(...SEED_USAGE.map((u) => u.cost))
 
   const kpis = [
-    { icon: UsersIcon, label: 'Total users', value: totalUsers.toString(), sub: `${SEED_USERS.filter((u) => u.status === 'active').length} active` },
-    { icon: BuildingOffice2Icon, label: 'Workspaces', value: activeWorkspaces.toString(), sub: `${SEED_SUBSCRIPTIONS.filter((s) => s.status === 'trialing').length} on trial` },
+    { icon: UsersIcon, label: 'Total users', value: totalUsers.toString(), sub: `${users.filter((u) => u.status === 'active').length} active` },
+    { icon: BuildingOffice2Icon, label: 'Workspaces', value: activeWorkspaces.toString(), sub: `${subscriptions.filter((s) => s.status === 'trialing').length} on trial` },
     { icon: BanknotesIcon, label: 'MRR', value: usd(mrr), sub: 'across all plans' },
     { icon: CpuChipIcon, label: 'AI spend / mo', value: usd(aiSpend), sub: 'all providers' },
   ]
@@ -77,7 +79,7 @@ export function AdminDashboard() {
           <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">Recent admin activity</h2>
           <p className="text-xs text-slate-400">From the audit log</p>
           <ul className="mt-4 divide-y divide-slate-100 dark:divide-white/5">
-            {SEED_AUDIT.slice(0, 5).map((a) => (
+            {audit.slice(0, 5).map((a) => (
               <li key={a.id} className="flex items-start justify-between gap-3 py-3">
                 <div>
                   <p className="text-sm text-slate-700 dark:text-slate-200">

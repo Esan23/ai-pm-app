@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { can, SEED_INTEGRATIONS, type AdminRoleKey, type IntegrationStatus } from '../../lib/admin'
+import { can, type AdminRoleKey, type IntegrationStatus } from '../../lib/admin'
+import { useAdminData, setIntegrationStatus, updateSetting, type AdminSettings } from '../../lib/adminStore'
 
 const statusDot: Record<IntegrationStatus, string> = {
   connected: 'bg-success',
@@ -30,16 +30,17 @@ function Toggle({ label, on, onToggle, disabled }: { label: string; on: boolean;
   )
 }
 
-export function SystemConfig({ role }: { role: AdminRoleKey }) {
+export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: string }) {
+  const { integrations, settings } = useAdminData()
   const canManage = can(role, 'manage:integrations') || can(role, 'manage:settings')
-  const [settings, setSettings] = useState({
-    transactionalEmail: true,
-    trialReminders: true,
-    overageAlerts: true,
-    enterpriseWhiteLabel: false,
-  })
 
-  const toggle = (k: keyof typeof settings) => canManage && setSettings((s) => ({ ...s, [k]: !s[k] }))
+  const toggleSetting = (k: keyof AdminSettings) => {
+    if (canManage) updateSetting(k, !settings[k] as never, actor)
+  }
+  const toggleIntegration = (name: string, status: IntegrationStatus) => {
+    if (!canManage || status === 'error') return
+    setIntegrationStatus(name, status === 'connected' ? 'available' : 'connected', actor)
+  }
 
   return (
     <div className="space-y-6">
@@ -53,16 +54,26 @@ export function SystemConfig({ role }: { role: AdminRoleKey }) {
         <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">Integrations</h2>
         <p className="text-xs text-slate-400">Provider & tool connectors (via MCP where available)</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {SEED_INTEGRATIONS.map((i) => (
+          {integrations.map((i) => (
             <div key={i.name} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10">
               <div>
                 <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{i.name}</p>
                 <p className="text-xs text-slate-400">{i.category}</p>
               </div>
-              <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <span className={`h-2 w-2 rounded-full ${statusDot[i.status]}`} />
-                {statusLabel[i.status]}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  <span className={`h-2 w-2 rounded-full ${statusDot[i.status]}`} />
+                  {statusLabel[i.status]}
+                </span>
+                {canManage && i.status !== 'error' && (
+                  <button
+                    onClick={() => toggleIntegration(i.name, i.status)}
+                    className="rounded-md px-2 py-1 text-[11px] font-semibold text-signal-700 hover:bg-signal-500/10 dark:text-signal-300"
+                  >
+                    {i.status === 'connected' ? 'Disconnect' : 'Connect'}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -73,9 +84,9 @@ export function SystemConfig({ role }: { role: AdminRoleKey }) {
         <div className="card p-6">
           <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">Email & notifications</h2>
           <div className="mt-2 divide-y divide-slate-100 dark:divide-white/5">
-            <Toggle label="Transactional email (magic links, invites)" on={settings.transactionalEmail} onToggle={() => toggle('transactionalEmail')} disabled={!canManage} />
-            <Toggle label="Trial-ending reminders" on={settings.trialReminders} onToggle={() => toggle('trialReminders')} disabled={!canManage} />
-            <Toggle label="Usage overage alerts" on={settings.overageAlerts} onToggle={() => toggle('overageAlerts')} disabled={!canManage} />
+            <Toggle label="Transactional email (magic links, invites)" on={settings.transactionalEmail} onToggle={() => toggleSetting('transactionalEmail')} disabled={!canManage} />
+            <Toggle label="Trial-ending reminders" on={settings.trialReminders} onToggle={() => toggleSetting('trialReminders')} disabled={!canManage} />
+            <Toggle label="Usage overage alerts" on={settings.overageAlerts} onToggle={() => toggleSetting('overageAlerts')} disabled={!canManage} />
           </div>
         </div>
 
@@ -84,7 +95,12 @@ export function SystemConfig({ role }: { role: AdminRoleKey }) {
           <div className="mt-4 space-y-3 text-sm">
             <label className="block">
               <span className="text-slate-500 dark:text-slate-400">Default locale</span>
-              <select disabled={!canManage} className="input-field mt-1 disabled:opacity-50">
+              <select
+                value={settings.locale}
+                onChange={(e) => canManage && updateSetting('locale', e.target.value, actor)}
+                disabled={!canManage}
+                className="input-field mt-1 disabled:opacity-50"
+              >
                 <option>English (US)</option>
                 <option>English (UK)</option>
                 <option>Español</option>
@@ -93,14 +109,19 @@ export function SystemConfig({ role }: { role: AdminRoleKey }) {
             </label>
             <label className="block">
               <span className="text-slate-500 dark:text-slate-400">Default currency</span>
-              <select disabled={!canManage} className="input-field mt-1 disabled:opacity-50">
+              <select
+                value={settings.currency}
+                onChange={(e) => canManage && updateSetting('currency', e.target.value, actor)}
+                disabled={!canManage}
+                className="input-field mt-1 disabled:opacity-50"
+              >
                 <option>USD ($)</option>
                 <option>EUR (€)</option>
                 <option>GBP (£)</option>
               </select>
             </label>
             <div className="divide-y divide-slate-100 dark:divide-white/5">
-              <Toggle label="Enterprise white-label / custom domain" on={settings.enterpriseWhiteLabel} onToggle={() => toggle('enterpriseWhiteLabel')} disabled={!canManage} />
+              <Toggle label="Enterprise white-label / custom domain" on={settings.enterpriseWhiteLabel} onToggle={() => toggleSetting('enterpriseWhiteLabel')} disabled={!canManage} />
             </div>
           </div>
         </div>
