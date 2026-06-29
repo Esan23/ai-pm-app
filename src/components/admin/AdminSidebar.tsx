@@ -1,6 +1,7 @@
-import type { ComponentType, SVGProps } from 'react'
+import type { ComponentType, ReactNode, SVGProps } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { Logo } from '../Logo'
+import { useModal } from '../../hooks/useModal'
 
 export interface NavItem {
   key: string
@@ -52,19 +53,32 @@ export function AdminSidebar({ items, active, onSelect, open, onClose }: Props) 
 
       {/* Mobile drawer */}
       {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-          <aside className="absolute left-0 top-0 h-full w-64 border-r border-slate-200 bg-white dark:border-white/10 dark:bg-ink">
-            <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-white/10">
-              <Logo />
-              <button onClick={onClose} aria-label="Close menu" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            {nav}
-          </aside>
-        </div>
+        <MobileDrawer onClose={onClose}>{nav}</MobileDrawer>
       )}
     </>
+  )
+}
+
+function MobileDrawer({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const ref = useModal<HTMLElement>(onClose)
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <aside
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Admin navigation"
+        className="absolute left-0 top-0 h-full w-64 border-r border-slate-200 bg-white dark:border-white/10 dark:bg-ink"
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-white/10">
+          <Logo />
+          <button onClick={onClose} aria-label="Close menu" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+        {children}
+      </aside>
+    </div>
   )
 }

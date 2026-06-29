@@ -14,6 +14,7 @@ import { UserManagement } from '../components/admin/UserManagement'
 import { SubscriptionUsage } from '../components/admin/SubscriptionUsage'
 import { SecurityCompliance } from '../components/admin/SecurityCompliance'
 import { SystemConfig } from '../components/admin/SystemConfig'
+import { ToastProvider } from '../components/ui/Toast'
 import { can, ROLES, type AdminRoleKey, type Permission } from '../lib/admin'
 import { useAdminSession, signOutAdmin } from '../lib/adminAuth'
 
@@ -89,6 +90,7 @@ function AdminShell(props: {
   }, [allowed, active, setActive])
 
   return (
+    <ToastProvider>
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-700 dark:bg-ink dark:text-slate-300">
       <AdminHeader
         currentAdmin={currentAdmin}
@@ -126,5 +128,6 @@ function AdminShell(props: {
         {isSuper ? ` · previewing as ${ROLES[role].displayName}` : ` · ${ROLES[role].displayName}`} · demo data · ISM6427c
       </footer>
     </div>
+    </ToastProvider>
   )
 }

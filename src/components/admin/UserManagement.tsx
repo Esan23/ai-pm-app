@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import { XMarkIcon, NoSymbolIcon, CheckCircleIcon, PaperAirplaneIcon, PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import { ProviderBadge } from '../app/ProviderBadge'
-import { can, ROLES, type AdminRoleKey, type PlanName, type UserStatus } from '../../lib/admin'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { useToast } from '../ui/Toast'
+import { useModal } from '../../hooks/useModal'
+import { can, ROLES, type AdminRoleKey, type AdminUser, type PlanName, type UserStatus } from '../../lib/admin'
 import { useAdminData, createUser, updateUser, setUserStatus, resendInvite } from '../../lib/adminStore'
 
 const statusStyles: Record<UserStatus, string> = {
@@ -14,15 +17,14 @@ const ADMIN_ROLE_OPTIONS: (AdminRoleKey | 'member')[] = ['member', 'support_admi
 
 export function UserManagement({ role, actor, search }: { role: AdminRoleKey; actor: string; search: string }) {
   const { users } = useAdminData()
+  const notify = useToast()
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
   const [planFilter, setPlanFilter] = useState<string>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [pendingSuspend, setPendingSuspend] = useState<{ id: string; name: string } | null>(null)
 
   const canCreate = can(role, 'create:users')
-  const canUpdate = can(role, 'update:users')
-  const canSuspend = can(role, 'suspend:users')
 
   const selected = users.find((u) => u.id === selectedId) ?? null
 
@@ -35,12 +37,6 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
       return true
     })
   }, [users, statusFilter, planFilter, search])
-
-  const suspend = (id: string, name: string) => {
-    if (canSuspend && confirm(`Suspend ${name}? They will lose access until reactivated.`)) {
-      setUserStatus(id, 'suspended', actor)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -91,7 +87,7 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
             {filtered.map((u) => (
               <tr
                 key={u.id}
-                onClick={() => { setSelectedId(u.id); setEditing(false) }}
+                onClick={() => setSelectedId(u.id)}
                 className="cursor-pointer border-b border-slate-100 transition hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5"
               >
                 <td className="px-4 py-3">
@@ -114,85 +110,137 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
         </table>
       </div>
 
-      {/* Detail drawer */}
       {selected && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedId(null)} />
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-slate-200 bg-white dark:border-white/10 dark:bg-ink">
-            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-white/10">
-              <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">User detail</h2>
-              <button onClick={() => setSelectedId(null)} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-5 p-5">
-              <div>
-                <p className="font-display text-h5 font-bold text-slate-900 dark:text-white">{selected.name}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{selected.email}</p>
-                <span className={`mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[selected.status]}`}>{selected.status}</span>
-              </div>
-
-              {editing && canUpdate ? (
-                <EditForm
-                  key={selected.id}
-                  initial={{ name: selected.name, plan: selected.plan, adminRole: selected.adminRole }}
-                  onCancel={() => setEditing(false)}
-                  onSave={(patch) => { updateUser(selected.id, patch, actor); setEditing(false) }}
-                />
-              ) : (
-                <>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
-                    <div><dt className="text-slate-400">Workspace</dt><dd className="text-slate-700 dark:text-slate-200">{selected.workspace}</dd></div>
-                    <div><dt className="text-slate-400">Plan</dt><dd className="text-slate-700 dark:text-slate-200">{selected.plan}</dd></div>
-                    <div><dt className="text-slate-400">Admin role</dt><dd className="text-slate-700 dark:text-slate-200">{selected.adminRole ? ROLES[selected.adminRole].displayName : 'Member'}</dd></div>
-                    <div><dt className="text-slate-400">Last active</dt><dd className="text-slate-700 dark:text-slate-200">{selected.lastActive}</dd></div>
-                  </dl>
-
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI providers used</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {selected.providers.length ? selected.providers.map((p) => <ProviderBadge key={p} provider={p} />) : <span className="text-sm text-slate-400">None yet</span>}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 border-t border-slate-100 pt-5 dark:border-white/5">
-                    {!canUpdate && !canSuspend && <p className="text-sm text-slate-400">Your role has read-only access to users.</p>}
-                    {canUpdate && (
-                      <button onClick={() => setEditing(true)} className="btn-ghost w-full justify-start gap-2">
-                        <PencilSquareIcon className="h-4 w-4" /> Edit user
-                      </button>
-                    )}
-                    {selected.status === 'pending' && canUpdate && (
-                      <button onClick={() => { resendInvite(selected.id, actor); alert(`Magic-link invite re-sent to ${selected.email}`) }} className="btn-ghost w-full justify-start gap-2">
-                        <PaperAirplaneIcon className="h-4 w-4" /> Resend magic-link invite
-                      </button>
-                    )}
-                    {canSuspend && selected.status !== 'suspended' && (
-                      <button onClick={() => suspend(selected.id, selected.name)} className="btn-ghost w-full justify-start gap-2 text-error">
-                        <NoSymbolIcon className="h-4 w-4" /> Suspend user
-                      </button>
-                    )}
-                    {canSuspend && selected.status === 'suspended' && (
-                      <button onClick={() => setUserStatus(selected.id, 'active', actor)} className="btn-ghost w-full justify-start gap-2 text-success">
-                        <CheckCircleIcon className="h-4 w-4" /> Reactivate user
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </aside>
-        </div>
+        <UserDrawer
+          key={selected.id}
+          user={selected}
+          role={role}
+          actor={actor}
+          onClose={() => setSelectedId(null)}
+          onRequestSuspend={() => setPendingSuspend({ id: selected.id, name: selected.name })}
+        />
       )}
 
-      {/* Create modal */}
       {showCreate && (
         <CreateModal
           onClose={() => setShowCreate(false)}
-          onCreate={(input) => { createUser(input, actor); setShowCreate(false) }}
+          onCreate={(input) => {
+            createUser(input, actor)
+            setShowCreate(false)
+            notify(`Created ${input.email} and sent an invite.`)
+          }}
         />
       )}
+
+      {pendingSuspend && (
+        <ConfirmDialog
+          title="Suspend user?"
+          message={`${pendingSuspend.name} will lose access until reactivated. This is recorded in the audit log.`}
+          confirmLabel="Suspend"
+          onConfirm={() => {
+            setUserStatus(pendingSuspend.id, 'suspended', actor)
+            notify(`${pendingSuspend.name} suspended.`, 'info')
+            setPendingSuspend(null)
+          }}
+          onCancel={() => setPendingSuspend(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function UserDrawer({
+  user, role, actor, onClose, onRequestSuspend,
+}: {
+  user: AdminUser
+  role: AdminRoleKey
+  actor: string
+  onClose: () => void
+  onRequestSuspend: () => void
+}) {
+  const ref = useModal<HTMLDivElement>(onClose)
+  const notify = useToast()
+  const [editing, setEditing] = useState(false)
+  const canUpdate = can(role, 'update:users')
+  const canSuspend = can(role, 'suspend:users')
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <aside
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label="User detail"
+        className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-slate-200 bg-white dark:border-white/10 dark:bg-ink"
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-white/10">
+          <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">User detail</h2>
+          <button onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+          <div>
+            <p className="font-display text-h5 font-bold text-slate-900 dark:text-white">{user.name}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{user.email}</p>
+            <span className={`mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[user.status]}`}>{user.status}</span>
+          </div>
+
+          {editing && canUpdate ? (
+            <EditForm
+              initial={{ name: user.name, plan: user.plan, adminRole: user.adminRole }}
+              onCancel={() => setEditing(false)}
+              onSave={(patch) => {
+                updateUser(user.id, patch, actor)
+                setEditing(false)
+                notify(`Saved changes to ${patch.name}.`)
+              }}
+            />
+          ) : (
+            <>
+              <dl className="grid grid-cols-2 gap-3 text-sm">
+                <div><dt className="text-slate-400">Workspace</dt><dd className="text-slate-700 dark:text-slate-200">{user.workspace}</dd></div>
+                <div><dt className="text-slate-400">Plan</dt><dd className="text-slate-700 dark:text-slate-200">{user.plan}</dd></div>
+                <div><dt className="text-slate-400">Admin role</dt><dd className="text-slate-700 dark:text-slate-200">{user.adminRole ? ROLES[user.adminRole].displayName : 'Member'}</dd></div>
+                <div><dt className="text-slate-400">Last active</dt><dd className="text-slate-700 dark:text-slate-200">{user.lastActive}</dd></div>
+              </dl>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI providers used</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {user.providers.length ? user.providers.map((p) => <ProviderBadge key={p} provider={p} />) : <span className="text-sm text-slate-400">None yet</span>}
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t border-slate-100 pt-5 dark:border-white/5">
+                {!canUpdate && !canSuspend && <p className="text-sm text-slate-400">Your role has read-only access to users.</p>}
+                {canUpdate && (
+                  <button onClick={() => setEditing(true)} className="btn-ghost w-full justify-start gap-2">
+                    <PencilSquareIcon className="h-4 w-4" /> Edit user
+                  </button>
+                )}
+                {user.status === 'pending' && canUpdate && (
+                  <button onClick={() => { resendInvite(user.id, actor); notify(`Invite re-sent to ${user.email}.`) }} className="btn-ghost w-full justify-start gap-2">
+                    <PaperAirplaneIcon className="h-4 w-4" /> Resend magic-link invite
+                  </button>
+                )}
+                {canSuspend && user.status !== 'suspended' && (
+                  <button onClick={onRequestSuspend} className="btn-ghost w-full justify-start gap-2 text-error">
+                    <NoSymbolIcon className="h-4 w-4" /> Suspend user
+                  </button>
+                )}
+                {canSuspend && user.status === 'suspended' && (
+                  <button onClick={() => { setUserStatus(user.id, 'active', actor); notify(`${user.name} reactivated.`) }} className="btn-ghost w-full justify-start gap-2 text-success">
+                    <CheckCircleIcon className="h-4 w-4" /> Reactivate user
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
     </div>
   )
 }
@@ -245,6 +293,7 @@ function CreateModal({
   onClose: () => void
   onCreate: (input: { name: string; email: string; workspace: string; plan: PlanName; adminRole: AdminRoleKey | null }) => void
 }) {
+  const ref = useModal<HTMLDivElement>(onClose)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [workspace, setWorkspace] = useState('')
@@ -254,7 +303,7 @@ function CreateModal({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="card relative w-full max-w-md p-6">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label="Create user" className="card relative w-full max-w-md p-6">
         <h2 className="font-display text-h5 font-bold text-slate-900 dark:text-white">Create user</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">A magic-link invite is sent on creation.</p>
         <form

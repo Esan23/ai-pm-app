@@ -1,5 +1,6 @@
 import { can, type AdminRoleKey, type IntegrationStatus } from '../../lib/admin'
 import { useAdminData, setIntegrationStatus, updateSetting, type AdminSettings } from '../../lib/adminStore'
+import { useToast } from '../ui/Toast'
 
 const statusDot: Record<IntegrationStatus, string> = {
   connected: 'bg-success',
@@ -32,6 +33,7 @@ function Toggle({ label, on, onToggle, disabled }: { label: string; on: boolean;
 
 export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: string }) {
   const { integrations, settings } = useAdminData()
+  const notify = useToast()
   const canManage = can(role, 'manage:integrations') || can(role, 'manage:settings')
 
   const toggleSetting = (k: keyof AdminSettings) => {
@@ -39,7 +41,9 @@ export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: strin
   }
   const toggleIntegration = (name: string, status: IntegrationStatus) => {
     if (!canManage || status === 'error') return
-    setIntegrationStatus(name, status === 'connected' ? 'available' : 'connected', actor)
+    const next = status === 'connected' ? 'available' : 'connected'
+    setIntegrationStatus(name, next, actor)
+    notify(`${name} ${next === 'connected' ? 'connected' : 'disconnected'}.`)
   }
 
   return (
