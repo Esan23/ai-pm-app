@@ -19,7 +19,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
-            className="heading mt-5 text-4xl leading-[1.08] sm:text-5xl lg:text-6xl"
+            className="heading mt-5 text-h2 sm:text-h1 lg:text-display"
           >
             One source of truth for{' '}
             <span className="bg-gradient-to-r from-signal-500 to-signal-300 bg-clip-text text-transparent">

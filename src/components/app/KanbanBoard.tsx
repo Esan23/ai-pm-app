@@ -8,7 +8,7 @@ import { ProviderBadge } from './ProviderBadge'
 const COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'done']
 const DOT: Record<TaskStatus, string> = {
   todo: 'bg-slate-400',
-  in_progress: 'bg-amber-400',
+  in_progress: 'bg-warning-400',
   done: 'bg-signal-500',
 }
 
@@ -112,7 +112,7 @@ export function KanbanBoard({ projectId, tasks }: KanbanProps) {
                     <button
                       onClick={() => deleteTask(t.id)}
                       aria-label="Delete task"
-                      className="hidden h-5 w-5 shrink-0 place-items-center rounded text-slate-400 hover:text-red-500 group-hover:grid"
+                      className="hidden h-5 w-5 shrink-0 place-items-center rounded text-slate-400 hover:text-error-500 group-hover:grid"
                     >
                       <TrashIcon className="h-3.5 w-3.5" />
                     </button>

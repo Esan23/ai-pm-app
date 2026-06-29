@@ -66,7 +66,7 @@ function Workspace() {
           {project ? (
             <div className="space-y-6">
               <div>
-                <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">
+                <h1 className="font-display text-h3 font-bold text-slate-900 dark:text-white">
                   {project.name}
                 </h1>
                 {project.description && (

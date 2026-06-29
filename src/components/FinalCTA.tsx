@@ -6,7 +6,7 @@ export function FinalCTA() {
       <div className="container-cairn">
         <Reveal>
           <div className="surface-gradient relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-900 px-8 py-16 text-center sm:px-16 dark:border-white/10">
-            <h2 className="heading mx-auto max-w-2xl text-3xl text-white sm:text-4xl">
+            <h2 className="heading mx-auto max-w-2xl text-h3 text-white sm:text-h2">
               Stop being the human source of truth.
             </h2>
             <p className="mx-auto mt-5 max-w-xl text-lg text-slate-300">
