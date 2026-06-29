@@ -15,7 +15,8 @@ import { SubscriptionUsage } from '../components/admin/SubscriptionUsage'
 import { SecurityCompliance } from '../components/admin/SecurityCompliance'
 import { SystemConfig } from '../components/admin/SystemConfig'
 import { ToastProvider } from '../components/ui/Toast'
-import { can, ROLES, type AdminRoleKey, type Permission } from '../lib/admin'
+import { ROLES, type AdminRoleKey, type Permission } from '../lib/admin'
+import { useCan } from '../lib/adminStore'
 import { useAdminSession, signOutAdmin } from '../lib/adminAuth'
 
 interface Section extends NavItem {
@@ -32,6 +33,7 @@ const SECTIONS: Section[] = [
 
 export default function AdminPage() {
   const { currentAdmin } = useAdminSession()
+  const can = useCan()
   const [active, setActive] = useState('dashboard')
   const [search, setSearch] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -117,7 +119,7 @@ function AdminShell(props: {
             {active === 'dashboard' && <AdminDashboard />}
             {active === 'users' && <UserManagement role={role} actor={actor} search={search} />}
             {active === 'subscriptions' && <SubscriptionUsage role={role} />}
-            {active === 'security' && <SecurityCompliance role={role} />}
+            {active === 'security' && <SecurityCompliance role={role} actor={actor} />}
             {active === 'system' && <SystemConfig role={role} actor={actor} />}
           </div>
         </main>

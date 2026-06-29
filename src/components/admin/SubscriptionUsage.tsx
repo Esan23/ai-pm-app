@@ -1,5 +1,5 @@
-import { can, PLANS, SEED_USAGE, usd, type AdminRoleKey, type SubStatus } from '../../lib/admin'
-import { useAdminData } from '../../lib/adminStore'
+import { PLANS, SEED_USAGE, usd, type AdminRoleKey, type SubStatus } from '../../lib/admin'
+import { useAdminData, useCan } from '../../lib/adminStore'
 
 const subStatus: Record<SubStatus, string> = {
   active: 'bg-success/10 text-success',
@@ -10,6 +10,7 @@ const subStatus: Record<SubStatus, string> = {
 
 export function SubscriptionUsage({ role }: { role: AdminRoleKey }) {
   const { subscriptions } = useAdminData()
+  const can = useCan()
   const canManage = can(role, 'manage:plans')
   const totalCaptures = SEED_USAGE.reduce((a, u) => a + u.captures, 0)
 
