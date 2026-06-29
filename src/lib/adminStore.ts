@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import {
+  ROLES,
   SEED_USERS,
   SEED_SUBSCRIPTIONS,
   SEED_AUDIT,
@@ -12,7 +13,16 @@ import {
   type UserStatus,
   type PlanName,
   type AdminRoleKey,
+  type Permission,
 } from './admin'
+
+export type RolePermissions = Record<AdminRoleKey, Permission[] | '*'>
+
+function seedRolePermissions(): RolePermissions {
+  return Object.fromEntries(
+    Object.entries(ROLES).map(([k, r]) => [k, r.permissions === '*' ? '*' : [...r.permissions]]),
+  ) as RolePermissions
+}
 
 export interface AdminSettings {
   transactionalEmail: boolean
@@ -29,6 +39,7 @@ export interface AdminState {
   audit: AuditEntry[]
   integrations: Integration[]
   settings: AdminSettings
+  rolePermissions: RolePermissions
 }
 
 const KEY = 'cairn-admin-v1'
@@ -47,6 +58,7 @@ function seed(): AdminState {
       locale: 'English (US)',
       currency: 'USD ($)',
     },
+    rolePermissions: seedRolePermissions(),
   }
 }
 
@@ -57,7 +69,8 @@ function load(): AdminState {
     if (!raw) return seed()
     const parsed = JSON.parse(raw) as AdminState
     if (!parsed.users) return seed()
-    return parsed
+    // Merge in defaults for fields added after this row was first persisted.
+    return { ...seed(), ...parsed, rolePermissions: parsed.rolePermissions ?? seedRolePermissions() }
   } catch {
     return seed()
   }
@@ -189,6 +202,25 @@ export function updateSetting<K extends keyof AdminSettings>(
 ) {
   set((s) => ({ ...s, settings: { ...s.settings, [key]: value } }))
   logAction(actor, 'manage:settings', `${key} → ${value}`)
+}
+
+export function setRolePermission(role: AdminRoleKey, perm: Permission, on: boolean, actor: string) {
+  set((s) => {
+    const cur = s.rolePermissions[role]
+    if (cur === '*') return s // Super Administrator is always full-access
+    const next = on ? Array.from(new Set([...cur, perm])) : cur.filter((p) => p !== perm)
+    return { ...s, rolePermissions: { ...s.rolePermissions, [role]: next } }
+  })
+  logAction(actor, 'manage:roles', `${ROLES[role].displayName}: ${on ? 'granted' : 'revoked'} ${perm}`)
+}
+
+/** Store-aware permission check (reflects live role-permission edits). */
+export function useCan() {
+  const { rolePermissions } = useAdminData()
+  return (role: AdminRoleKey, perm: Permission) => {
+    const p = rolePermissions[role]
+    return p === '*' || p.includes(perm)
+  }
 }
 
 export function resetAdminData() {

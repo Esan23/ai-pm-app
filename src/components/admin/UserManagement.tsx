@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { XMarkIcon, NoSymbolIcon, CheckCircleIcon, PaperAirplaneIcon, PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import { ProviderBadge } from '../app/ProviderBadge'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { Pagination } from '../ui/Pagination'
 import { useToast } from '../ui/Toast'
 import { useModal } from '../../hooks/useModal'
-import { can, ROLES, type AdminRoleKey, type AdminUser, type PlanName, type UserStatus } from '../../lib/admin'
-import { useAdminData, createUser, updateUser, setUserStatus, resendInvite } from '../../lib/adminStore'
+import { ROLES, type AdminRoleKey, type AdminUser, type PlanName, type UserStatus } from '../../lib/admin'
+import { useAdminData, useCan, createUser, updateUser, setUserStatus, resendInvite } from '../../lib/adminStore'
 
 const statusStyles: Record<UserStatus, string> = {
   active: 'bg-success/10 text-success',
@@ -14,15 +15,18 @@ const statusStyles: Record<UserStatus, string> = {
 }
 
 const ADMIN_ROLE_OPTIONS: (AdminRoleKey | 'member')[] = ['member', 'support_admin', 'billing_admin', 'platform_admin', 'super_admin']
+const PAGE_SIZE = 8
 
 export function UserManagement({ role, actor, search }: { role: AdminRoleKey; actor: string; search: string }) {
   const { users } = useAdminData()
   const notify = useToast()
+  const can = useCan()
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
   const [planFilter, setPlanFilter] = useState<string>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [pendingSuspend, setPendingSuspend] = useState<{ id: string; name: string } | null>(null)
+  const [page, setPage] = useState(1)
 
   const canCreate = can(role, 'create:users')
 
@@ -37,6 +41,13 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
       return true
     })
   }, [users, statusFilter, planFilter, search])
+
+  // Reset to page 1 whenever the filtered set changes shape.
+  useEffect(() => setPage(1), [statusFilter, planFilter, search])
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   return (
     <div className="space-y-6">
@@ -84,7 +95,7 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
             </tr>
           </thead>
           <tbody>
-            {filtered.map((u) => (
+            {paged.map((u) => (
               <tr
                 key={u.id}
                 onClick={() => setSelectedId(u.id)}
@@ -108,6 +119,7 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
             )}
           </tbody>
         </table>
+        <Pagination page={safePage} pageCount={pageCount} total={filtered.length} onPage={setPage} />
       </div>
 
       {selected && (
@@ -160,6 +172,7 @@ function UserDrawer({
 }) {
   const ref = useModal<HTMLDivElement>(onClose)
   const notify = useToast()
+  const can = useCan()
   const [editing, setEditing] = useState(false)
   const canUpdate = can(role, 'update:users')
   const canSuspend = can(role, 'suspend:users')

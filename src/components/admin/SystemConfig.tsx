@@ -1,5 +1,5 @@
-import { can, type AdminRoleKey, type IntegrationStatus } from '../../lib/admin'
-import { useAdminData, setIntegrationStatus, updateSetting, type AdminSettings } from '../../lib/adminStore'
+import { type AdminRoleKey, type IntegrationStatus } from '../../lib/admin'
+import { useAdminData, useCan, setIntegrationStatus, updateSetting, type AdminSettings } from '../../lib/adminStore'
 import { useToast } from '../ui/Toast'
 
 const statusDot: Record<IntegrationStatus, string> = {
@@ -34,6 +34,7 @@ function Toggle({ label, on, onToggle, disabled }: { label: string; on: boolean;
 export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: string }) {
   const { integrations, settings } = useAdminData()
   const notify = useToast()
+  const can = useCan()
   const canManage = can(role, 'manage:integrations') || can(role, 'manage:settings')
 
   const toggleSetting = (k: keyof AdminSettings) => {
