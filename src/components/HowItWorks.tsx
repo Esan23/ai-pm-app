@@ -35,7 +35,7 @@ export function HowItWorks() {
       <div className="container-cairn">
         <Reveal className="max-w-2xl">
           <span className="eyebrow">How it works</span>
-          <h2 className="heading mt-5 text-3xl sm:text-4xl">
+          <h2 className="heading mt-5 text-h3 sm:text-h2">
             From a conversation to a legible plan
           </h2>
           <p className="mt-5 text-lg text-slate-600 dark:text-slate-300">

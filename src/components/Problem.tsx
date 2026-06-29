@@ -21,7 +21,7 @@ export function Problem() {
       <div className="container-cairn">
         <Reveal className="max-w-2xl">
           <span className="eyebrow">The daily tax</span>
-          <h2 className="heading mt-5 text-3xl sm:text-4xl">
+          <h2 className="heading mt-5 text-h3 sm:text-h2">
             You can&apos;t get one honest answer to{' '}
             <span className="text-signal-600 dark:text-signal-400">
               “what&apos;s the status of everything?”
@@ -38,7 +38,7 @@ export function Problem() {
           {frustrations.map((f, i) => (
             <Reveal key={f.quote} delay={i * 0.08}>
               <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
-                <p className="font-display text-xl font-semibold text-slate-900 dark:text-white">
+                <p className="font-display text-h5 font-semibold text-slate-900 dark:text-white">
                   {f.quote}
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">

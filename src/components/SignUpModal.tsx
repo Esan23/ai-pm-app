@@ -97,7 +97,7 @@ export function SignUpModal() {
             {result === 'magic' ? (
               <div className="py-4 text-center">
                 <CheckCircleIcon className="mx-auto h-12 w-12 text-signal-500" />
-                <h3 className="mt-4 font-display text-xl font-semibold text-slate-900 dark:text-white">
+                <h3 className="mt-4 font-display text-h5 font-semibold text-slate-900 dark:text-white">
                   Check your email
                 </h3>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
@@ -111,7 +111,7 @@ export function SignUpModal() {
             ) : result === 'sim' ? (
               <div className="py-4 text-center">
                 <CheckCircleIcon className="mx-auto h-12 w-12 text-signal-500" />
-                <h3 className="mt-4 font-display text-xl font-semibold text-slate-900 dark:text-white">
+                <h3 className="mt-4 font-display text-h5 font-semibold text-slate-900 dark:text-white">
                   You&apos;re in.
                 </h3>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
@@ -124,7 +124,7 @@ export function SignUpModal() {
             ) : (
               <>
                 <Logo />
-                <h3 className="mt-5 font-display text-xl font-semibold text-slate-900 dark:text-white">
+                <h3 className="mt-5 font-display text-h5 font-semibold text-slate-900 dark:text-white">
                   Start free
                 </h3>
                 <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
@@ -144,7 +144,7 @@ export function SignUpModal() {
                     />
                   </div>
                   {error && (
-                    <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-300">
+                    <p className="rounded-lg bg-error-50 px-3 py-2 text-xs text-error-600 dark:bg-error-500/10 dark:text-error-300">
                       {error}
                     </p>
                   )}

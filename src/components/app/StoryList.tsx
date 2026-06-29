@@ -1,8 +1,8 @@
 import type { Story, Task } from '../../lib/types'
 
 const PRIORITY_STYLES: Record<Story['priority'], string> = {
-  high: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
-  medium: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  high: 'bg-error-100 text-error-700 dark:bg-error-500/15 dark:text-error-300',
+  medium: 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300',
   low: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
 }
 

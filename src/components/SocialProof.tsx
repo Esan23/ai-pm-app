@@ -27,7 +27,7 @@ export function SocialProof() {
       <div className="container-cairn">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="eyebrow">Built for the people shipping AI</span>
-          <h2 className="heading mt-5 text-3xl sm:text-4xl">
+          <h2 className="heading mt-5 text-h3 sm:text-h2">
             Make shipping AI look easy and inevitable
           </h2>
         </Reveal>

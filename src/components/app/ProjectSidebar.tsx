@@ -92,7 +92,7 @@ export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) 
                   if (confirm(`Delete project "${p.name}" and its stories/tasks?`)) deleteProject(p.id)
                 }}
                 aria-label="Delete project"
-                className="hidden h-6 w-6 place-items-center rounded text-slate-400 hover:text-red-500 group-hover:grid"
+                className="hidden h-6 w-6 place-items-center rounded text-slate-400 hover:text-error-500 group-hover:grid"
               >
                 <TrashIcon className="h-3.5 w-3.5" />
               </button>

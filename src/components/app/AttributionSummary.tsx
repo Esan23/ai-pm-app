@@ -3,11 +3,11 @@ import { PROVIDERS } from '../../lib/types'
 import { ProviderBadge } from './ProviderBadge'
 
 const BAR: Record<Provider, string> = {
-  Human: 'bg-slate-400',
-  Claude: 'bg-orange-400',
-  ChatGPT: 'bg-emerald-400',
-  Copilot: 'bg-violet-400',
-  Gemini: 'bg-sky-400',
+  Human: 'bg-attribution-human-400',
+  Claude: 'bg-attribution-claude-400',
+  ChatGPT: 'bg-attribution-chatgpt-400',
+  Copilot: 'bg-attribution-copilot-400',
+  Gemini: 'bg-attribution-gemini-400',
 }
 
 /** The differentiator: who/what produced the work in this project. */

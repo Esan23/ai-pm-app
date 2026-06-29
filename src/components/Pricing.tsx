@@ -54,7 +54,7 @@ export function Pricing() {
       <div className="container-cairn">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="eyebrow">Pricing</span>
-          <h2 className="heading mt-5 text-3xl sm:text-4xl">Start free. Pay once it works on your reality.</h2>
+          <h2 className="heading mt-5 text-h3 sm:text-h2">Start free. Pay once it works on your reality.</h2>
           <p className="mt-5 text-lg text-slate-600 dark:text-slate-300">
             $25/user/month is a rounding error against the cost of one stalled AI project — but you
             won&apos;t pay for a promise. Prove it on your own messy backlog first.
