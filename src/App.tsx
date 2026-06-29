@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage'
 
 // Code-split the workspace + auth so the landing page ships a lean bundle.
 const AppPage = lazy(() => import('./pages/AppPage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 
 function AppLoading() {
@@ -27,6 +28,14 @@ export default function App() {
           element={
             <Suspense fallback={<AppLoading />}>
               <AppPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<AppLoading />}>
+              <AdminPage />
             </Suspense>
           }
         />
