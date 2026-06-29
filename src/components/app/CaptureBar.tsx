@@ -105,7 +105,7 @@ export function CaptureBar({ projectId }: CaptureBarProps) {
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] ${
                     source === 'ai'
-                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300'
+                      ? 'bg-attribution-claude-100 text-attribution-claude-700 dark:bg-attribution-claude-500/15 dark:text-attribution-claude-300'
                       : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
                   }`}
                 >
