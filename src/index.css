@@ -38,4 +38,23 @@
       ),
       radial-gradient(50% 60% at 0% 100%, rgba(45, 212, 191, 0.12), transparent 60%);
   }
+  /* B2B landing primitives */
+  .section {
+    @apply py-16 sm:py-20 lg:py-28;
+  }
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm transition dark:border-white/10 dark:bg-white/[0.03];
+  }
+  .card-hover {
+    @apply hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-900/5 dark:hover:shadow-black/20;
+  }
+  .input-field {
+    @apply h-12 w-full rounded-lg border border-slate-300 bg-white px-4 text-base text-slate-900 transition placeholder:text-slate-400 focus:border-signal-500 focus:outline-none focus:ring-2 focus:ring-signal-500/30 dark:border-white/15 dark:bg-white/5 dark:text-white;
+  }
+  .btn-lg {
+    @apply px-7 py-4 text-base;
+  }
+  .wordmark {
+    @apply font-display text-lg font-bold tracking-tight text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300;
+  }
 }

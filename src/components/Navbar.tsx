@@ -5,10 +5,11 @@ import { Logo } from './Logo'
 import { useTheme } from '../hooks/useTheme'
 
 const links = [
-  { label: 'Problem', href: '#problem' },
-  { label: 'How it works', href: '#how' },
-  { label: 'Features', href: '#features' },
+  { label: 'Platform', href: '#features' },
+  { label: 'Solutions', href: '#solution' },
+  { label: 'Resources', href: '#demo' },
   { label: 'Pricing', href: '#pricing' },
+  { label: 'Enterprise', href: '#security' },
 ]
 
 export function Navbar() {
@@ -31,12 +32,12 @@ export function Navbar() {
           : 'border-b border-transparent'
       }`}
     >
-      <nav className="container-cairn flex h-16 items-center justify-between">
+      <nav className="container-cairn flex h-[60px] items-center justify-between md:h-[72px]">
         <a href="#top" className="shrink-0" aria-label="Cairn home">
           <Logo />
         </a>
 
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-8 lg:flex">
           {links.map((l) => (
             <a
               key={l.href}
@@ -60,15 +61,16 @@ export function Navbar() {
             to="/app"
             className="hidden text-sm font-medium text-slate-600 transition hover:text-slate-900 sm:inline dark:text-slate-300 dark:hover:text-white"
           >
-            Open app
+            Sign in
           </Link>
           <a href="#start" className="btn-primary hidden sm:inline-flex">
-            Start free
+            Request a demo
           </a>
           <button
             onClick={() => setOpen((o) => !o)}
             aria-label="Toggle menu"
-            className="grid h-10 w-10 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 md:hidden dark:text-slate-300 dark:hover:bg-white/10"
+            aria-expanded={open}
+            className="grid h-10 w-10 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 lg:hidden dark:text-slate-300 dark:hover:bg-white/10"
           >
             {open ? <XMarkIcon className="h-6 w-6" /> : <Bars3Icon className="h-6 w-6" />}
           </button>
@@ -76,7 +78,7 @@ export function Navbar() {
       </nav>
 
       {open && (
-        <div className="border-t border-slate-200/70 bg-white md:hidden dark:border-white/10 dark:bg-ink">
+        <div className="border-t border-slate-200/70 bg-white lg:hidden dark:border-white/10 dark:bg-ink">
           <div className="container-cairn flex flex-col gap-1 py-4">
             {links.map((l) => (
               <a
@@ -93,10 +95,10 @@ export function Navbar() {
               onClick={() => setOpen(false)}
               className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
             >
-              Open app
+              Sign in
             </Link>
             <a href="#start" onClick={() => setOpen(false)} className="btn-primary mt-2">
-              Start free
+              Request a demo
             </a>
           </div>
         </div>
