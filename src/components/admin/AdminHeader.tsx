@@ -1,10 +1,11 @@
 import { Bars3Icon, MagnifyingGlassIcon, MoonIcon, SunIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { Logo } from '../Logo'
 import { useTheme } from '../../hooks/useTheme'
-import { ROLES, type AdminRoleKey, type AdminUser } from '../../lib/admin'
+import { ROLES, type AdminRoleKey } from '../../lib/admin'
 
 interface Props {
-  currentAdmin: AdminUser
+  adminName: string
+  adminRole: AdminRoleKey
   isSuper: boolean
   previewRole: AdminRoleKey
   onPreviewRole: (r: AdminRoleKey) => void
@@ -15,7 +16,7 @@ interface Props {
 }
 
 export function AdminHeader({
-  currentAdmin, isSuper, previewRole, onPreviewRole, search, onSearch, onMenu, onSignOut,
+  adminName, adminRole, isSuper, previewRole, onPreviewRole, search, onSearch, onMenu, onSignOut,
 }: Props) {
   const { theme, toggle } = useTheme()
 
@@ -64,7 +65,7 @@ export function AdminHeader({
           </label>
         ) : (
           <span className="ml-auto rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 sm:ml-0 dark:bg-white/10 dark:text-slate-300">
-            {currentAdmin.adminRole ? ROLES[currentAdmin.adminRole].displayName : ''}
+            {ROLES[adminRole].displayName}
           </span>
         )}
 
@@ -77,7 +78,7 @@ export function AdminHeader({
         </button>
 
         <span className="hidden text-xs font-medium text-slate-600 lg:inline dark:text-slate-300">
-          {currentAdmin.name}
+          {adminName}
         </span>
         <button
           onClick={onSignOut}

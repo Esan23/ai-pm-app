@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
+import { AuthProvider } from './lib/auth'
 
 // Code-split the workspace + auth so the landing page ships a lean bundle.
 const AppPage = lazy(() => import('./pages/AppPage'))
@@ -34,9 +35,11 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            <Suspense fallback={<AppLoading />}>
-              <AdminPage />
-            </Suspense>
+            <AuthProvider>
+              <Suspense fallback={<AppLoading />}>
+                <AdminPage />
+              </Suspense>
+            </AuthProvider>
           }
         />
         <Route
