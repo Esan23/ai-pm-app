@@ -1,5 +1,6 @@
-import { type AdminRoleKey, type IntegrationStatus } from '../../lib/admin'
-import { useAdminData, useCan, setIntegrationStatus, updateSetting, type AdminSettings } from '../../lib/adminStore'
+import { type AdminRoleKey, type Integration, type IntegrationStatus } from '../../lib/admin'
+import { type AdminSettings } from '../../lib/adminStore'
+import { useUnifiedAdminData, useCanUnified, setIntegrationStatusUnified, updateSettingUnified } from '../../lib/adminData'
 import { useToast } from '../ui/Toast'
 
 const statusDot: Record<IntegrationStatus, string> = {
@@ -32,19 +33,36 @@ function Toggle({ label, on, onToggle, disabled }: { label: string; on: boolean;
 }
 
 export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: string }) {
-  const { integrations, settings } = useAdminData()
+  const { integrations, settings } = useUnifiedAdminData()
   const notify = useToast()
-  const can = useCan()
+  const can = useCanUnified()
   const canManage = can(role, 'manage:integrations') || can(role, 'manage:settings')
 
-  const toggleSetting = (k: keyof AdminSettings) => {
-    if (canManage) updateSetting(k, !settings[k] as never, actor)
+  const toggleSetting = async (k: keyof AdminSettings) => {
+    if (!canManage) return
+    try {
+      await updateSettingUnified(k, !settings[k] as never, settings, actor)
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Could not update the setting.', 'error')
+    }
   }
-  const toggleIntegration = (name: string, status: IntegrationStatus) => {
-    if (!canManage || status === 'error') return
-    const next = status === 'connected' ? 'available' : 'connected'
-    setIntegrationStatus(name, next, actor)
-    notify(`${name} ${next === 'connected' ? 'connected' : 'disconnected'}.`)
+  const setSelect = async (k: 'locale' | 'currency', value: string) => {
+    if (!canManage) return
+    try {
+      await updateSettingUnified(k, value, settings, actor)
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Could not update the setting.', 'error')
+    }
+  }
+  const toggleIntegration = async (i: Integration) => {
+    if (!canManage || i.status === 'error') return
+    const next: IntegrationStatus = i.status === 'connected' ? 'available' : 'connected'
+    try {
+      await setIntegrationStatusUnified(i, next, actor)
+      notify(`${i.name} ${next === 'connected' ? 'connected' : 'disconnected'}.`)
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Could not update the integration.', 'error')
+    }
   }
 
   return (
@@ -72,7 +90,7 @@ export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: strin
                 </span>
                 {canManage && i.status !== 'error' && (
                   <button
-                    onClick={() => toggleIntegration(i.name, i.status)}
+                    onClick={() => toggleIntegration(i)}
                     className="rounded-md px-2 py-1 text-[11px] font-semibold text-signal-700 hover:bg-signal-500/10 dark:text-signal-300"
                   >
                     {i.status === 'connected' ? 'Disconnect' : 'Connect'}
@@ -102,7 +120,7 @@ export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: strin
               <span className="text-slate-500 dark:text-slate-400">Default locale</span>
               <select
                 value={settings.locale}
-                onChange={(e) => canManage && updateSetting('locale', e.target.value, actor)}
+                onChange={(e) => setSelect('locale', e.target.value)}
                 disabled={!canManage}
                 className="input-field mt-1 disabled:opacity-50"
               >
@@ -116,7 +134,7 @@ export function SystemConfig({ role, actor }: { role: AdminRoleKey; actor: strin
               <span className="text-slate-500 dark:text-slate-400">Default currency</span>
               <select
                 value={settings.currency}
-                onChange={(e) => canManage && updateSetting('currency', e.target.value, actor)}
+                onChange={(e) => setSelect('currency', e.target.value)}
                 disabled={!canManage}
                 className="input-field mt-1 disabled:opacity-50"
               >

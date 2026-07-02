@@ -1,6 +1,5 @@
 import { UsersIcon, BuildingOffice2Icon, BanknotesIcon, CpuChipIcon } from '@heroicons/react/24/outline'
-import { SEED_USAGE, usd } from '../../lib/admin'
-import { useAdminData } from '../../lib/adminStore'
+import { usd } from '../../lib/admin'
 import { useUnifiedAdminData } from '../../lib/adminData'
 
 const providerColor: Record<string, string> = {
@@ -11,13 +10,12 @@ const providerColor: Record<string, string> = {
 }
 
 export function AdminDashboard() {
-  const { subscriptions } = useAdminData()
-  const { users, audit } = useUnifiedAdminData()
+  const { users, audit, subscriptions, usage, usageIsLive } = useUnifiedAdminData()
   const totalUsers = users.length
   const activeWorkspaces = new Set(subscriptions.map((s) => s.workspace)).size
   const mrr = subscriptions.reduce((a, s) => a + s.mrr, 0)
-  const aiSpend = SEED_USAGE.reduce((a, u) => a + u.cost, 0)
-  const maxCost = Math.max(...SEED_USAGE.map((u) => u.cost))
+  const aiSpend = usage.reduce((a, u) => a + u.cost, 0)
+  const maxCost = Math.max(1, ...usage.map((u) => u.cost))
 
   const kpis = [
     { icon: UsersIcon, label: 'Total users', value: totalUsers.toString(), sub: `${users.filter((u) => u.status === 'active').length} active` },
@@ -55,9 +53,11 @@ export function AdminDashboard() {
         {/* AI spend by provider */}
         <div className="card p-6">
           <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">AI spend by provider</h2>
-          <p className="text-xs text-slate-400">Monthly token cost · cross-provider ledger</p>
+          <p className="text-xs text-slate-400">
+            Monthly token cost · cross-provider ledger{usageIsLive ? '' : ' · illustrative'}
+          </p>
           <div className="mt-5 space-y-4">
-            {SEED_USAGE.map((u) => (
+            {usage.map((u) => (
               <div key={u.provider}>
                 <div className="mb-1 flex justify-between text-sm">
                   <span className="font-medium text-slate-700 dark:text-slate-200">{u.provider}</span>
