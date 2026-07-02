@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { CheckIcon, MinusIcon, MagnifyingGlassIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import { ALL_PERMISSIONS, ROLES, type AdminRoleKey, type Permission } from '../../lib/admin'
 import { useAdminData, useCan, setRolePermission } from '../../lib/adminStore'
+import { useUnifiedAdminData } from '../../lib/adminData'
 import { Pagination } from '../ui/Pagination'
 import { useToast } from '../ui/Toast'
 
@@ -13,7 +14,8 @@ function toCsv(rows: string[][]): string {
 }
 
 export function SecurityCompliance({ role, actor }: { role: AdminRoleKey; actor: string }) {
-  const { audit, rolePermissions } = useAdminData()
+  const { rolePermissions } = useAdminData()
+  const { audit } = useUnifiedAdminData()
   const can = useCan()
   const notify = useToast()
   const canManageRoles = can(role, 'manage:roles')
