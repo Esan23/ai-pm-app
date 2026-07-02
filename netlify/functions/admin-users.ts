@@ -1,5 +1,6 @@
 import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 /**
  * Privileged admin-user operations. Runs with the service-role key (server
@@ -56,7 +57,12 @@ export const handler: Handler = async (event) => {
   const action = payload.action
   if (!action || !(action in PERMISSION_FOR)) return json(400, { error: 'Unknown action' })
 
-  const db = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false } })
+  // Realtime is unused here, but supabase-js constructs its client eagerly and
+  // Netlify's Node 20 Lambda lacks native WebSocket — supply ws as transport.
+  const db = createClient(SUPABASE_URL, serviceKey, {
+    auth: { persistSession: false },
+    realtime: { transport: ws as unknown as undefined },
+  })
 
   // 1) Verify the caller's JWT.
   const { data: caller, error: authErr } = await db.auth.getUser(token)
