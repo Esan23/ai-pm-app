@@ -1,6 +1,7 @@
 import { UsersIcon, BuildingOffice2Icon, BanknotesIcon, CpuChipIcon } from '@heroicons/react/24/outline'
 import { SEED_USAGE, usd } from '../../lib/admin'
 import { useAdminData } from '../../lib/adminStore'
+import { useUnifiedAdminData } from '../../lib/adminData'
 
 const providerColor: Record<string, string> = {
   Claude: 'bg-attribution-claude-500',
@@ -10,7 +11,8 @@ const providerColor: Record<string, string> = {
 }
 
 export function AdminDashboard() {
-  const { users, subscriptions, audit } = useAdminData()
+  const { subscriptions } = useAdminData()
+  const { users, audit } = useUnifiedAdminData()
   const totalUsers = users.length
   const activeWorkspaces = new Set(subscriptions.map((s) => s.workspace)).size
   const mrr = subscriptions.reduce((a, s) => a + s.mrr, 0)

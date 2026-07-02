@@ -6,7 +6,14 @@ import { Pagination } from '../ui/Pagination'
 import { useToast } from '../ui/Toast'
 import { useModal } from '../../hooks/useModal'
 import { ROLES, type AdminRoleKey, type AdminUser, type PlanName, type UserStatus } from '../../lib/admin'
-import { useAdminData, useCan, createUser, updateUser, setUserStatus, resendInvite } from '../../lib/adminStore'
+import { useCan } from '../../lib/adminStore'
+import {
+  useUnifiedAdminData,
+  createUserUnified,
+  updateUserUnified,
+  setUserStatusUnified,
+  resendInviteUnified,
+} from '../../lib/adminData'
 
 const statusStyles: Record<UserStatus, string> = {
   active: 'bg-success/10 text-success',
@@ -18,7 +25,7 @@ const ADMIN_ROLE_OPTIONS: (AdminRoleKey | 'member')[] = ['member', 'support_admi
 const PAGE_SIZE = 8
 
 export function UserManagement({ role, actor, search }: { role: AdminRoleKey; actor: string; search: string }) {
-  const { users } = useAdminData()
+  const { users, refresh } = useUnifiedAdminData()
   const notify = useToast()
   const can = useCan()
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
@@ -130,16 +137,22 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
           actor={actor}
           onClose={() => setSelectedId(null)}
           onRequestSuspend={() => setPendingSuspend({ id: selected.id, name: selected.name })}
+          onChanged={refresh}
         />
       )}
 
       {showCreate && (
         <CreateModal
           onClose={() => setShowCreate(false)}
-          onCreate={(input) => {
-            createUser(input, actor)
-            setShowCreate(false)
-            notify(`Created ${input.email} and sent an invite.`)
+          onCreate={async (input) => {
+            try {
+              await createUserUnified(input, actor)
+              setShowCreate(false)
+              notify(`Created ${input.email} and sent an invite.`)
+              refresh()
+            } catch (err) {
+              notify(err instanceof Error ? err.message : 'Could not create the user.', 'error')
+            }
           }}
         />
       )}
@@ -149,9 +162,14 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
           title="Suspend user?"
           message={`${pendingSuspend.name} will lose access until reactivated. This is recorded in the audit log.`}
           confirmLabel="Suspend"
-          onConfirm={() => {
-            setUserStatus(pendingSuspend.id, 'suspended', actor)
-            notify(`${pendingSuspend.name} suspended.`, 'info')
+          onConfirm={async () => {
+            try {
+              await setUserStatusUnified(pendingSuspend.id, 'suspended', actor)
+              notify(`${pendingSuspend.name} suspended.`, 'info')
+              refresh()
+            } catch (err) {
+              notify(err instanceof Error ? err.message : 'Could not suspend the user.', 'error')
+            }
             setPendingSuspend(null)
           }}
           onCancel={() => setPendingSuspend(null)}
@@ -162,13 +180,14 @@ export function UserManagement({ role, actor, search }: { role: AdminRoleKey; ac
 }
 
 function UserDrawer({
-  user, role, actor, onClose, onRequestSuspend,
+  user, role, actor, onClose, onRequestSuspend, onChanged,
 }: {
   user: AdminUser
   role: AdminRoleKey
   actor: string
   onClose: () => void
   onRequestSuspend: () => void
+  onChanged: () => void
 }) {
   const ref = useModal<HTMLDivElement>(onClose)
   const notify = useToast()
@@ -205,10 +224,15 @@ function UserDrawer({
             <EditForm
               initial={{ name: user.name, plan: user.plan, adminRole: user.adminRole }}
               onCancel={() => setEditing(false)}
-              onSave={(patch) => {
-                updateUser(user.id, patch, actor)
-                setEditing(false)
-                notify(`Saved changes to ${patch.name}.`)
+              onSave={async (patch) => {
+                try {
+                  await updateUserUnified(user.id, patch, actor)
+                  setEditing(false)
+                  notify(`Saved changes to ${patch.name}.`)
+                  onChanged()
+                } catch (err) {
+                  notify(err instanceof Error ? err.message : 'Could not save changes.', 'error')
+                }
               }}
             />
           ) : (
@@ -235,7 +259,17 @@ function UserDrawer({
                   </button>
                 )}
                 {user.status === 'pending' && canUpdate && (
-                  <button onClick={() => { resendInvite(user.id, actor); notify(`Invite re-sent to ${user.email}.`) }} className="btn-ghost w-full justify-start gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await resendInviteUnified(user.id, user.email, actor)
+                        notify(`Invite re-sent to ${user.email}.`)
+                      } catch (err) {
+                        notify(err instanceof Error ? err.message : 'Could not resend the invite.', 'error')
+                      }
+                    }}
+                    className="btn-ghost w-full justify-start gap-2"
+                  >
                     <PaperAirplaneIcon className="h-4 w-4" /> Resend magic-link invite
                   </button>
                 )}
@@ -245,7 +279,18 @@ function UserDrawer({
                   </button>
                 )}
                 {canSuspend && user.status === 'suspended' && (
-                  <button onClick={() => { setUserStatus(user.id, 'active', actor); notify(`${user.name} reactivated.`) }} className="btn-ghost w-full justify-start gap-2 text-success">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await setUserStatusUnified(user.id, 'active', actor)
+                        notify(`${user.name} reactivated.`)
+                        onChanged()
+                      } catch (err) {
+                        notify(err instanceof Error ? err.message : 'Could not reactivate.', 'error')
+                      }
+                    }}
+                    className="btn-ghost w-full justify-start gap-2 text-success"
+                  >
                     <CheckCircleIcon className="h-4 w-4" /> Reactivate user
                   </button>
                 )}
