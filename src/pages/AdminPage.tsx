@@ -17,7 +17,7 @@ import { SecurityCompliance } from '../components/admin/SecurityCompliance'
 import { SystemConfig } from '../components/admin/SystemConfig'
 import { ToastProvider } from '../components/ui/Toast'
 import { ROLES, type AdminRoleKey, type Permission } from '../lib/admin'
-import { useCan } from '../lib/adminStore'
+import { useCanUnified, useUnifiedAdminData, isLiveAdmin } from '../lib/adminData'
 import { useAdminSession, signOutAdmin } from '../lib/adminAuth'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -90,7 +90,8 @@ function AdminShell({
   adminRole: AdminRoleKey
   onSignOut: () => void
 }) {
-  const can = useCan()
+  const can = useCanUnified()
+  const { ready } = useUnifiedAdminData()
   const [active, setActive] = useState('dashboard')
   const [search, setSearch] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -102,8 +103,12 @@ function AdminShell({
   const allowed = SECTIONS.filter((s) => s.perm === null || can(role, s.perm))
 
   useEffect(() => {
-    if (!allowed.some((s) => s.key === active)) setActive('dashboard')
-  }, [allowed, active])
+    if (ready && !allowed.some((s) => s.key === active)) setActive('dashboard')
+  }, [ready, allowed, active])
+
+  // Live mode: role permissions arrive with the first fetch — wait so the
+  // nav doesn't render half-gated.
+  if (isLiveAdmin && !ready) return <AdminLoading />
 
   return (
     <ToastProvider>
@@ -143,7 +148,7 @@ function AdminShell({
         <footer className="border-t border-slate-200 px-6 py-4 text-center text-xs text-slate-400 dark:border-white/10">
           Cairn Admin · signed in as {adminName}
           {isSuper ? ` · previewing as ${ROLES[role].displayName}` : ` · ${ROLES[role].displayName}`}
-          {isSupabaseConfigured ? ' · live backend (users & audit; rest demo)' : ' · demo data'} · ISM6427c
+          {isSupabaseConfigured ? ' · live backend' : ' · demo data'} · ISM6427c
         </footer>
       </div>
     </ToastProvider>

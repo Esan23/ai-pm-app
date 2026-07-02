@@ -1,5 +1,5 @@
-import { PLANS, SEED_USAGE, usd, type AdminRoleKey, type SubStatus } from '../../lib/admin'
-import { useAdminData, useCan } from '../../lib/adminStore'
+import { usd, type AdminRoleKey, type SubStatus } from '../../lib/admin'
+import { useUnifiedAdminData, useCanUnified } from '../../lib/adminData'
 
 const subStatus: Record<SubStatus, string> = {
   active: 'bg-success/10 text-success',
@@ -9,10 +9,10 @@ const subStatus: Record<SubStatus, string> = {
 }
 
 export function SubscriptionUsage({ role }: { role: AdminRoleKey }) {
-  const { subscriptions } = useAdminData()
-  const can = useCan()
+  const { plans, subscriptions, usage, usageIsLive } = useUnifiedAdminData()
+  const can = useCanUnified()
   const canManage = can(role, 'manage:plans')
-  const totalCaptures = SEED_USAGE.reduce((a, u) => a + u.captures, 0)
+  const totalCaptures = usage.reduce((a, u) => a + u.captures, 0)
 
   return (
     <div className="space-y-6">
@@ -26,7 +26,7 @@ export function SubscriptionUsage({ role }: { role: AdminRoleKey }) {
 
       {/* Plans */}
       <div className="grid gap-4 md:grid-cols-3">
-        {PLANS.map((p) => (
+        {plans.map((p) => (
           <div key={p.id} className={`card p-5 ${p.name === 'Pro' ? 'border-signal-500/50' : ''}`}>
             <div className="flex items-center justify-between">
               <h2 className="font-display text-h5 font-bold text-slate-900 dark:text-white">{p.name}</h2>
@@ -76,6 +76,13 @@ export function SubscriptionUsage({ role }: { role: AdminRoleKey }) {
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{s.renewal}</td>
               </tr>
             ))}
+            {subscriptions.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                  No customer subscriptions yet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -83,9 +90,12 @@ export function SubscriptionUsage({ role }: { role: AdminRoleKey }) {
       {/* Usage by provider */}
       <div className="card p-6">
         <h2 className="font-display text-h5 font-semibold text-slate-900 dark:text-white">Metered AI usage</h2>
-        <p className="text-xs text-slate-400">{totalCaptures.toLocaleString()} captures this period · cross-provider cost ledger</p>
+        <p className="text-xs text-slate-400">
+          {totalCaptures.toLocaleString()} captures this period · cross-provider cost ledger
+          {usageIsLive ? '' : ' · illustrative until metering lands'}
+        </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {SEED_USAGE.map((u) => (
+          {usage.map((u) => (
             <div key={u.provider} className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{u.provider}</p>
               <p className="mt-1 font-display text-h4 font-bold text-slate-900 dark:text-white">{usd(u.cost)}</p>

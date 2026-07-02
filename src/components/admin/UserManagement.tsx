@@ -6,9 +6,9 @@ import { Pagination } from '../ui/Pagination'
 import { useToast } from '../ui/Toast'
 import { useModal } from '../../hooks/useModal'
 import { ROLES, type AdminRoleKey, type AdminUser, type PlanName, type UserStatus } from '../../lib/admin'
-import { useCan } from '../../lib/adminStore'
 import {
   useUnifiedAdminData,
+  useCanUnified,
   createUserUnified,
   updateUserUnified,
   setUserStatusUnified,
@@ -27,7 +27,7 @@ const PAGE_SIZE = 8
 export function UserManagement({ role, actor, search }: { role: AdminRoleKey; actor: string; search: string }) {
   const { users, refresh } = useUnifiedAdminData()
   const notify = useToast()
-  const can = useCan()
+  const can = useCanUnified()
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all')
   const [planFilter, setPlanFilter] = useState<string>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -191,7 +191,7 @@ function UserDrawer({
 }) {
   const ref = useModal<HTMLDivElement>(onClose)
   const notify = useToast()
-  const can = useCan()
+  const can = useCanUnified()
   const [editing, setEditing] = useState(false)
   const canUpdate = can(role, 'update:users')
   const canSuspend = can(role, 'suspend:users')

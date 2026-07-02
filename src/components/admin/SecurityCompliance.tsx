@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { CheckIcon, MinusIcon, MagnifyingGlassIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import { ALL_PERMISSIONS, ROLES, type AdminRoleKey, type Permission } from '../../lib/admin'
-import { useAdminData, useCan, setRolePermission } from '../../lib/adminStore'
-import { useUnifiedAdminData } from '../../lib/adminData'
+import { useUnifiedAdminData, useCanUnified, setRolePermissionUnified } from '../../lib/adminData'
 import { Pagination } from '../ui/Pagination'
 import { useToast } from '../ui/Toast'
 
@@ -14,9 +13,8 @@ function toCsv(rows: string[][]): string {
 }
 
 export function SecurityCompliance({ role, actor }: { role: AdminRoleKey; actor: string }) {
-  const { rolePermissions } = useAdminData()
-  const { audit } = useUnifiedAdminData()
-  const can = useCan()
+  const { audit, rolePermissions } = useUnifiedAdminData()
+  const can = useCanUnified()
   const notify = useToast()
   const canManageRoles = can(role, 'manage:roles')
   const canExport = can(role, 'export:audit_logs')
@@ -41,9 +39,13 @@ export function SecurityCompliance({ role, actor }: { role: AdminRoleKey; actor:
     return p === '*' || p.includes(perm)
   }
 
-  const toggle = (r: AdminRoleKey, perm: Permission) => {
+  const toggle = async (r: AdminRoleKey, perm: Permission) => {
     if (!canManageRoles || r === 'super_admin') return
-    setRolePermission(r, perm, !permitted(r, perm), actor)
+    try {
+      await setRolePermissionUnified(r, perm, !permitted(r, perm), actor)
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Could not update the permission.', 'error')
+    }
   }
 
   const exportCsv = () => {
