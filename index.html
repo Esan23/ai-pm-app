@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b1220" />
     <title>Cairn — One source of truth for every AI project</title>
+    <script>
+      // Applied before first paint, so every route renders in the right theme -
+      // including routes that render no header - and nothing flashes light
+      // before React mounts. Kept in sync with src/hooks/useTheme.ts.
+      try {
+        var t = localStorage.getItem('cairn-theme')
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        document.documentElement.classList.toggle('dark', t === 'dark')
+      } catch (e) {
+        /* storage unavailable - fall through to the light default */
+      }
+    </script>
     <meta
       name="description"
       content="Cairn is the AI-native project management platform. Turn scattered context across Copilot, ChatGPT, Gemini, and Claude into one legible plan — portfolio to project to story to task — with provider-agnostic AI attribution and Azure DevOps sync."
