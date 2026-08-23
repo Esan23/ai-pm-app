@@ -27,6 +27,7 @@ import {
   insertStory,
   insertTask,
   pushWorkspace,
+  subscribeToMembership,
   subscribeToWorkspace,
   toActivity,
   toPortfolio,
@@ -213,6 +214,36 @@ export function useCanEdit(): boolean {
 
 let userId: string | null = null
 let unsubscribeRemote: (() => void) | null = null
+let unsubscribeMembership: (() => void) | null = null
+
+/** Drop both live channels. Always paired — they share a team's lifetime. */
+function unsubscribeAll() {
+  unsubscribeRemote?.()
+  unsubscribeRemote = null
+  unsubscribeMembership?.()
+  unsubscribeMembership = null
+}
+
+/**
+ * The roster changed. If it was this user's row, re-read the role so the UI
+ * reflects the privilege they actually have now rather than the one they had
+ * at sign-in. A removed membership resolves to null, which `canWrite` treats
+ * as read-only.
+ */
+async function onMembershipChange(changedUserId: string) {
+  if (!userId || changedUserId !== userId) return
+  const teamId = team.currentTeamId
+  if (!teamId) return
+  try {
+    const role = await fetchMyRole(teamId)
+    if (team.currentTeamId === teamId && role !== team.role) {
+      setTeam({ ...team, role })
+    }
+  } catch {
+    // A failed re-read must not disturb the workspace: the role on screen is
+    // stale at worst, and RLS still refuses the write.
+  }
+}
 
 /** Non-null only when signed in with a team; guest writes stay local. */
 function writeContext(): WriteContext | null {
@@ -477,8 +508,7 @@ function personalTeamId(id: string): string {
 /** Load a team's rows, replacing whatever is on screen, and resubscribe. */
 async function openTeam(teamId: string, options: { migrateGuestWork?: boolean } = {}) {
   if (!userId) return
-  unsubscribeRemote?.()
-  unsubscribeRemote = null
+  unsubscribeAll()
   setSync({ status: 'loading' })
 
   const remote = await fetchWorkspace(teamId)
@@ -498,6 +528,9 @@ async function openTeam(teamId: string, options: { migrateGuestWork?: boolean } 
 
   setSync({ status: 'synced', at: Date.now() })
   unsubscribeRemote = subscribeToWorkspace(teamId, applyRemoteChange)
+  unsubscribeMembership = subscribeToMembership(teamId, (changed) => {
+    void onMembershipChange(changed)
+  })
 }
 
 /**
@@ -512,8 +545,7 @@ export async function setSyncUser(id: string | null) {
   initialized = true
   userId = id
 
-  unsubscribeRemote?.()
-  unsubscribeRemote = null
+  unsubscribeAll()
 
   if (!id || !supabase) {
     if (previous) {
