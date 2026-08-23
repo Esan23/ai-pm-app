@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import type { Provider, Story, Task, TaskStatus } from '../../lib/types'
 import { PROVIDERS, STATUS_LABELS } from '../../lib/types'
-import { deleteTask, updateTask } from '../../lib/store'
+import { deleteTask, updateTask, useCanEdit } from '../../lib/store'
 import { describeDue, formatDay, formatTime, toDayString } from '../../lib/dates'
 import { useModal } from '../../hooks/useModal'
 
@@ -24,6 +24,7 @@ interface Props {
  * title, dates, owner — and the fields you set less often live here.
  */
 export function TaskDetail({ task, stories, onClose }: Props) {
+  const canEdit = useCanEdit()
   const ref = useModal<HTMLDivElement>(onClose)
   const [draft, setDraft] = useState({
     title: task.title,
@@ -167,6 +168,7 @@ export function TaskDetail({ task, stories, onClose }: Props) {
         </div>
 
         <div className="mt-6 flex items-center justify-between">
+          {canEdit ? (
           <button
             onClick={() => {
               deleteTask(task.id)
@@ -177,13 +179,18 @@ export function TaskDetail({ task, stories, onClose }: Props) {
             <TrashIcon className="h-4 w-4" />
             Delete task
           </button>
+          ) : (
+            <span className="text-xs text-slate-400">View only</span>
+          )}
           <div className="flex gap-2">
             <button onClick={onClose} className="btn-ghost px-4 py-2 text-sm">
-              Cancel
+              {canEdit ? 'Cancel' : 'Close'}
             </button>
-            <button onClick={save} className="btn-primary px-4 py-2 text-sm">
-              Save
-            </button>
+            {canEdit && (
+              <button onClick={save} className="btn-primary px-4 py-2 text-sm">
+                Save
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -19,6 +19,15 @@ export const TABLES: TableName[] = ['portfolios', 'projects', 'stories', 'tasks'
 /** How much history to pull on load; the rest stays on the server. */
 export const ACTIVITY_PAGE = 200
 
+/**
+ * Who is writing, and into which team. `user_id` records the author;
+ * `team_id` is what RLS actually checks (Phase 2).
+ */
+export interface WriteContext {
+  userId: string
+  teamId: string
+}
+
 type Row = Record<string, any>
 
 const ms = (value: unknown): number => {
@@ -88,17 +97,19 @@ export const toActivity = (r: Row): ActivityEvent => ({
   createdAt: ms(r.created_at),
 })
 
-const portfolioRow = (p: Portfolio, userId: string): Row => ({
+const portfolioRow = (p: Portfolio, ctx: WriteContext): Row => ({
   id: p.id,
-  user_id: userId,
+  user_id: ctx.userId,
+  team_id: ctx.teamId,
   name: p.name,
   description: p.description,
   created_at: iso(p.createdAt),
 })
 
-const projectRow = (p: Project, userId: string): Row => ({
+const projectRow = (p: Project, ctx: WriteContext): Row => ({
   id: p.id,
-  user_id: userId,
+  user_id: ctx.userId,
+  team_id: ctx.teamId,
   portfolio_id: p.portfolioId,
   name: p.name,
   description: p.description,
@@ -106,9 +117,10 @@ const projectRow = (p: Project, userId: string): Row => ({
   created_at: iso(p.createdAt),
 })
 
-const storyRow = (s: Story, userId: string): Row => ({
+const storyRow = (s: Story, ctx: WriteContext): Row => ({
   id: s.id,
-  user_id: userId,
+  user_id: ctx.userId,
+  team_id: ctx.teamId,
   project_id: s.projectId,
   title: s.title,
   as_a: s.asA,
@@ -118,9 +130,10 @@ const storyRow = (s: Story, userId: string): Row => ({
   created_at: iso(s.createdAt),
 })
 
-const taskRow = (t: Task, userId: string): Row => ({
+const taskRow = (t: Task, ctx: WriteContext): Row => ({
   id: t.id,
-  user_id: userId,
+  user_id: ctx.userId,
+  team_id: ctx.teamId,
   project_id: t.projectId,
   story_id: t.storyId,
   title: t.title,
@@ -132,9 +145,10 @@ const taskRow = (t: Task, userId: string): Row => ({
   created_at: iso(t.createdAt),
 })
 
-const activityRow = (e: ActivityEvent, userId: string): Row => ({
+const activityRow = (e: ActivityEvent, ctx: WriteContext): Row => ({
   id: e.id,
-  user_id: userId,
+  user_id: ctx.userId,
+  team_id: ctx.teamId,
   project_id: e.projectId,
   entity_type: e.entityType,
   entity_id: e.entityId,
@@ -187,17 +201,18 @@ function fail(context: string, error: { message: string } | null): void {
   if (error) throw new Error(`${context}: ${error.message}`)
 }
 
-/** Pull the signed-in user's entire workspace. RLS scopes it to them. */
-export async function fetchWorkspace(): Promise<Workspace> {
+/** Pull one team's workspace. RLS independently confirms membership. */
+export async function fetchWorkspace(teamId: string): Promise<Workspace> {
   if (!supabase) return EMPTY_WORKSPACE
   const [portfolios, projects, stories, tasks, activity] = await Promise.all([
-    supabase.from('portfolios').select('*').order('created_at'),
-    supabase.from('projects').select('*').order('created_at'),
-    supabase.from('stories').select('*').order('created_at'),
-    supabase.from('tasks').select('*').order('created_at'),
+    supabase.from('portfolios').select('*').eq('team_id', teamId).order('created_at'),
+    supabase.from('projects').select('*').eq('team_id', teamId).order('created_at'),
+    supabase.from('stories').select('*').eq('team_id', teamId).order('created_at'),
+    supabase.from('tasks').select('*').eq('team_id', teamId).order('created_at'),
     supabase
       .from('activity_events')
       .select('*')
+      .eq('team_id', teamId)
       .order('created_at', { ascending: false })
       .limit(ACTIVITY_PAGE),
   ])
@@ -217,31 +232,31 @@ export async function fetchWorkspace(): Promise<Workspace> {
 
 // ---- writes -------------------------------------------------------------
 
-export async function insertPortfolio(p: Portfolio, userId: string): Promise<void> {
+export async function insertPortfolio(p: Portfolio, ctx: WriteContext): Promise<void> {
   if (!supabase) return
-  fail('save portfolio', (await supabase.from('portfolios').insert(portfolioRow(p, userId))).error)
+  fail('save portfolio', (await supabase.from('portfolios').insert(portfolioRow(p, ctx))).error)
 }
 
-export async function insertProject(p: Project, userId: string): Promise<void> {
+export async function insertProject(p: Project, ctx: WriteContext): Promise<void> {
   if (!supabase) return
-  fail('save project', (await supabase.from('projects').insert(projectRow(p, userId))).error)
+  fail('save project', (await supabase.from('projects').insert(projectRow(p, ctx))).error)
 }
 
-export async function insertStory(s: Story, userId: string): Promise<void> {
+export async function insertStory(s: Story, ctx: WriteContext): Promise<void> {
   if (!supabase) return
-  fail('save story', (await supabase.from('stories').insert(storyRow(s, userId))).error)
+  fail('save story', (await supabase.from('stories').insert(storyRow(s, ctx))).error)
 }
 
-export async function insertTask(t: Task, userId: string): Promise<void> {
+export async function insertTask(t: Task, ctx: WriteContext): Promise<void> {
   if (!supabase) return
-  fail('save task', (await supabase.from('tasks').insert(taskRow(t, userId))).error)
+  fail('save task', (await supabase.from('tasks').insert(taskRow(t, ctx))).error)
 }
 
-export async function insertActivity(e: ActivityEvent, userId: string): Promise<void> {
+export async function insertActivity(e: ActivityEvent, ctx: WriteContext): Promise<void> {
   if (!supabase) return
   fail(
     'save activity',
-    (await supabase.from('activity_events').insert(activityRow(e, userId))).error,
+    (await supabase.from('activity_events').insert(activityRow(e, ctx))).error,
   )
 }
 
@@ -265,37 +280,37 @@ export async function deleteRow(table: TableName, id: string): Promise<void> {
  * Push a whole local (guest) workspace up on first sign-in.
  * Ordered parent-first so foreign keys resolve.
  */
-export async function pushWorkspace(ws: Workspace, userId: string): Promise<void> {
+export async function pushWorkspace(ws: Workspace, ctx: WriteContext): Promise<void> {
   if (!supabase) return
   if (ws.portfolios.length) {
     fail(
       'migrate portfolios',
-      (await supabase.from('portfolios').insert(ws.portfolios.map((p) => portfolioRow(p, userId))))
+      (await supabase.from('portfolios').insert(ws.portfolios.map((p) => portfolioRow(p, ctx))))
         .error,
     )
   }
   if (ws.projects.length) {
     fail(
       'migrate projects',
-      (await supabase.from('projects').insert(ws.projects.map((p) => projectRow(p, userId)))).error,
+      (await supabase.from('projects').insert(ws.projects.map((p) => projectRow(p, ctx)))).error,
     )
   }
   if (ws.stories.length) {
     fail(
       'migrate stories',
-      (await supabase.from('stories').insert(ws.stories.map((s) => storyRow(s, userId)))).error,
+      (await supabase.from('stories').insert(ws.stories.map((s) => storyRow(s, ctx)))).error,
     )
   }
   if (ws.tasks.length) {
     fail(
       'migrate tasks',
-      (await supabase.from('tasks').insert(ws.tasks.map((t) => taskRow(t, userId)))).error,
+      (await supabase.from('tasks').insert(ws.tasks.map((t) => taskRow(t, ctx)))).error,
     )
   }
   if (ws.activity.length) {
     fail(
       'migrate activity',
-      (await supabase.from('activity_events').insert(ws.activity.map((e) => activityRow(e, userId))))
+      (await supabase.from('activity_events').insert(ws.activity.map((e) => activityRow(e, ctx))))
         .error,
     )
   }
@@ -310,19 +325,21 @@ export interface RemoteChange {
 }
 
 /**
- * Subscribe to this user's rows. Inbound changes are what make a second tab or
- * device converge instead of clobbering — the whole point of Phase 0.
+ * Subscribe to this team's rows. Inbound changes are what make a second tab,
+ * device, or teammate converge instead of clobbering.
  */
 export function subscribeToWorkspace(
-  userId: string,
+  teamId: string,
   onChange: (change: RemoteChange) => void,
 ): (() => void) | null {
   if (!supabase) return null
-  const channel: RealtimeChannel = supabase.channel(`workspace:${userId}`)
+  const channel: RealtimeChannel = supabase.channel(`workspace:${teamId}`)
   for (const table of TABLES) {
     channel.on(
       'postgres_changes' as any,
-      { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },
+      // Filtered on team, not user: a teammate's edits carry their own user_id,
+      // so the Phase 1 filter would have silently ignored every one of them.
+      { event: '*', schema: 'public', table, filter: `team_id=eq.${teamId}` },
       (payload: any) => {
         onChange({
           table,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CalendarIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import type { Project, Task } from '../../lib/types'
-import { updateProject } from '../../lib/store'
+import { updateProject, useCanEdit } from '../../lib/store'
 import { daysUntil, describeDue, formatDay } from '../../lib/dates'
 
 const TARGET_TONE: Record<'overdue' | 'tight' | 'ok', string> = {
@@ -15,6 +15,7 @@ const TARGET_TONE: Record<'overdue' | 'tight' | 'ok', string> = {
  * from: how much is done, and how much time is left to do the rest.
  */
 export function ProjectHeader({ project, tasks }: { project: Project; tasks: Task[] }) {
+  const canEdit = useCanEdit()
   const [editingTarget, setEditingTarget] = useState(false)
   const [draft, setDraft] = useState(project.targetDate ?? '')
 
@@ -77,10 +78,14 @@ export function ProjectHeader({ project, tasks }: { project: Project; tasks: Tas
         ) : (
           <button
             onClick={() => {
+              if (!canEdit) return
               setDraft(project.targetDate ?? '')
               setEditingTarget(true)
             }}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition hover:opacity-80 ${TARGET_TONE[tone]}`}
+            disabled={!canEdit && !project.targetDate}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              canEdit ? 'hover:opacity-80' : 'cursor-default'
+            } ${TARGET_TONE[tone]}`}
           >
             <CalendarIcon className="h-4 w-4" />
             {project.targetDate ? (
@@ -89,7 +94,7 @@ export function ProjectHeader({ project, tasks }: { project: Project; tasks: Tas
                 <span className="font-normal opacity-75">· {describeDue(project.targetDate)}</span>
               </>
             ) : (
-              'Set target date'
+              canEdit ? 'Set target date' : 'No target date'
             )}
           </button>
         )}

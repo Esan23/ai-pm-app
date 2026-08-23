@@ -7,7 +7,7 @@ import {
 } from '@heroicons/react/24/outline'
 import type { Story, Task, TaskStatus, Provider } from '../../lib/types'
 import { STATUS_LABELS, PROVIDERS } from '../../lib/types'
-import { addTask, moveTask, updateTask } from '../../lib/store'
+import { addTask, moveTask, updateTask, useCanEdit } from '../../lib/store'
 import { dueTone, formatDay, type DueTone } from '../../lib/dates'
 import { ProviderBadge } from './ProviderBadge'
 import { TaskDetail } from './TaskDetail'
@@ -33,6 +33,7 @@ interface KanbanProps {
 }
 
 export function KanbanBoard({ projectId, tasks, stories }: KanbanProps) {
+  const canEdit = useCanEdit()
   const [dragId, setDragId] = useState<string | null>(null)
   const [over, setOver] = useState<TaskStatus | null>(null)
   const [addingIn, setAddingIn] = useState<TaskStatus | null>(null)
@@ -96,16 +97,18 @@ export function KanbanBoard({ projectId, tasks, stories }: KanbanProps) {
                   </span>
                   <span className="text-xs text-slate-400">{colTasks.length}</span>
                 </div>
-                <button
-                  onClick={() => {
-                    setAddingIn(status)
-                    setDraft('')
-                  }}
-                  aria-label={`Add task to ${STATUS_LABELS[status]}`}
-                  className="grid h-6 w-6 place-items-center rounded-md text-slate-400 hover:bg-slate-200/60 dark:hover:bg-white/10"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      setAddingIn(status)
+                      setDraft('')
+                    }}
+                    aria-label={`Add task to ${STATUS_LABELS[status]}`}
+                    className="grid h-6 w-6 place-items-center rounded-md text-slate-400 hover:bg-slate-200/60 dark:hover:bg-white/10"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               <div className="flex min-h-[60px] flex-1 flex-col gap-2">
@@ -130,11 +133,11 @@ export function KanbanBoard({ projectId, tasks, stories }: KanbanProps) {
                   return (
                     <div
                       key={t.id}
-                      draggable={!editing}
+                      draggable={!editing && canEdit}
                       onDragStart={() => setDragId(t.id)}
                       onDragEnd={() => setDragId(null)}
                       className={`group rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm transition dark:border-white/10 dark:bg-white/[0.04] ${
-                        editing ? '' : 'cursor-grab active:cursor-grabbing'
+                        !editing && canEdit ? 'cursor-grab active:cursor-grabbing' : ''
                       } ${dragId === t.id ? 'opacity-40' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -153,11 +156,11 @@ export function KanbanBoard({ projectId, tasks, stories }: KanbanProps) {
                           />
                         ) : (
                           <button
-                            onClick={() => startEdit(t)}
-                            title="Click to rename"
+                            onClick={() => canEdit && startEdit(t)}
+                            title={canEdit ? 'Click to rename' : undefined}
                             className={`min-w-0 flex-1 text-left text-sm leading-snug text-slate-800 dark:text-slate-100 ${
                               t.status === 'done' ? 'line-through opacity-60' : ''
-                            }`}
+                            } ${canEdit ? '' : 'cursor-default'}`}
                           >
                             {t.title}
                           </button>
@@ -201,6 +204,7 @@ export function KanbanBoard({ projectId, tasks, stories }: KanbanProps) {
                       {stories.length > 0 && (
                         <select
                           value={t.storyId ?? ''}
+                          disabled={!canEdit}
                           onChange={(e) => updateTask(t.id, { storyId: e.target.value || null })}
                           aria-label="Linked user story"
                           className="mt-2 w-full cursor-pointer truncate rounded-md bg-slate-50 px-1.5 py-1 text-[10px] font-medium text-slate-500 outline-none dark:bg-white/5 dark:text-slate-400"
@@ -217,6 +221,7 @@ export function KanbanBoard({ projectId, tasks, stories }: KanbanProps) {
                       <div className="mt-2 flex items-center justify-between">
                         <select
                           value={t.provider}
+                          disabled={!canEdit}
                           onChange={(e) =>
                             updateTask(t.id, { provider: e.target.value as Provider })
                           }

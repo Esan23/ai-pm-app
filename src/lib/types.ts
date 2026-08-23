@@ -56,6 +56,60 @@ export interface Portfolio {
   createdAt: number
 }
 
+/**
+ * Team membership (Phase 2). Access used to be `auth.uid() = user_id`; it now
+ * flows through a team, and `user_id` on content rows means "created by".
+ */
+export type TeamRole = 'owner' | 'admin' | 'member' | 'viewer'
+
+export const TEAM_ROLES: TeamRole[] = ['owner', 'admin', 'member', 'viewer']
+
+/** Roles that can be handed out via an invite — you cannot invite an owner. */
+export const INVITABLE_ROLES: Exclude<TeamRole, 'owner'>[] = ['admin', 'member', 'viewer']
+
+export const ROLE_BLURB: Record<TeamRole, string> = {
+  owner: 'Full control, including deleting the team.',
+  admin: 'Can edit everything and manage members.',
+  member: 'Can edit projects, stories, and tasks.',
+  viewer: 'Read-only.',
+}
+
+export function canWrite(role: TeamRole | null): boolean {
+  return role === 'owner' || role === 'admin' || role === 'member'
+}
+
+export function canAdmin(role: TeamRole | null): boolean {
+  return role === 'owner' || role === 'admin'
+}
+
+export interface Team {
+  id: string
+  name: string
+  createdBy: string
+  createdAt: number
+}
+
+export interface TeamMember {
+  teamId: string
+  userId: string
+  role: TeamRole
+  joinedAt: number
+  /** From public.profiles; absent until that row exists. */
+  email: string | null
+  fullName: string | null
+}
+
+export interface TeamInvite {
+  id: string
+  teamId: string
+  email: string
+  role: TeamRole
+  token: string
+  createdAt: number
+  expiresAt: number
+  acceptedAt: number | null
+}
+
 export type EntityType = 'portfolio' | 'project' | 'story' | 'task'
 
 export type ActivityAction =

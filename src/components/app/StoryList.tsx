@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline'
 import type { Priority, Story, Task } from '../../lib/types'
-import { deleteStory, updateStory } from '../../lib/store'
+import { deleteStory, updateStory, useCanEdit } from '../../lib/store'
 
 const PRIORITY_STYLES: Record<Priority, string> = {
   high: 'bg-error-100 text-error-700 dark:bg-error-500/15 dark:text-error-300',
@@ -20,6 +20,7 @@ interface StoryListProps {
 }
 
 export function StoryList({ stories, tasks }: StoryListProps) {
+  const canEdit = useCanEdit()
   const [editingId, setEditingId] = useState<string | null>(null)
 
   if (stories.length === 0) {
@@ -64,23 +65,27 @@ export function StoryList({ stories, tasks }: StoryListProps) {
                 >
                   {s.priority}
                 </span>
-                <button
-                  onClick={() => setEditingId(s.id)}
-                  aria-label="Edit story"
-                  className="hidden h-6 w-6 place-items-center rounded text-slate-400 hover:text-signal-500 group-hover:grid"
-                >
-                  <PencilSquareIcon className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Delete the story "${s.title}"? Its tasks are kept.`))
-                      deleteStory(s.id)
-                  }}
-                  aria-label="Delete story"
-                  className="hidden h-6 w-6 place-items-center rounded text-slate-400 hover:text-error-500 group-hover:grid"
-                >
-                  <TrashIcon className="h-3.5 w-3.5" />
-                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      onClick={() => setEditingId(s.id)}
+                      aria-label="Edit story"
+                      className="hidden h-6 w-6 place-items-center rounded text-slate-400 hover:text-signal-500 group-hover:grid"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete the story "${s.title}"? Its tasks are kept.`))
+                          deleteStory(s.id)
+                      }}
+                      aria-label="Delete story"
+                      className="hidden h-6 w-6 place-items-center rounded text-slate-400 hover:text-error-500 group-hover:grid"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

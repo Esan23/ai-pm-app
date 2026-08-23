@@ -9,10 +9,12 @@ import type {
   SyncState,
   Task,
   TaskStatus,
+  Team,
+  TeamRole,
   Provider,
   Workspace,
 } from './types'
-import { EMPTY_WORKSPACE, STATUS_LABELS } from './types'
+import { EMPTY_WORKSPACE, STATUS_LABELS, canWrite } from './types'
 import { DEMO_PORTFOLIO } from './seed'
 import { formatDay, toDayString } from './dates'
 import { supabase } from './supabase'
@@ -33,7 +35,9 @@ import {
   toTask,
   updateRow,
   type RemoteChange,
+  type WriteContext,
 } from './remote'
+import { createTeam, fetchMyRole, fetchTeams } from './teams'
 
 /**
  * Workspace store.
@@ -56,6 +60,8 @@ const ACTIVITY_LOCAL_CAP = 500
 interface Cache {
   /** Which account this cache belongs to; null = guest. */
   ownerId: string | null
+  /** Which team it holds. A cache from another team must not be shown. */
+  teamId: string | null
   workspace: Workspace
 }
 
@@ -88,20 +94,22 @@ function normalizeWorkspace(ws: Workspace): Workspace {
 }
 
 function loadCache(): Cache {
-  if (typeof window === 'undefined') return { ownerId: null, workspace: EMPTY_WORKSPACE }
+  const empty: Cache = { ownerId: null, teamId: null, workspace: EMPTY_WORKSPACE }
+  if (typeof window === 'undefined') return empty
   try {
     // The v1 blob held auto-seeded demo data; a fresh start is the point of v2.
     localStorage.removeItem(LEGACY_KEY)
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { ownerId: null, workspace: EMPTY_WORKSPACE }
+    if (!raw) return empty
     const parsed = JSON.parse(raw) as Cache
-    if (!parsed?.workspace?.portfolios) return { ownerId: null, workspace: EMPTY_WORKSPACE }
+    if (!parsed?.workspace?.portfolios) return empty
     return {
       ownerId: parsed.ownerId ?? null,
+      teamId: parsed.teamId ?? null,
       workspace: normalizeWorkspace({ ...EMPTY_WORKSPACE, ...parsed.workspace }),
     }
   } catch {
-    return { ownerId: null, workspace: EMPTY_WORKSPACE }
+    return empty
   }
 }
 
@@ -110,11 +118,27 @@ let state: Workspace = cached.workspace
 let cacheOwnerId: string | null = cached.ownerId
 let sync: SyncState = { status: 'guest' }
 
+/**
+ * Team context (Phase 2). Guest mode has none: the local workspace belongs to
+ * the browser, and `role` is null but editing is allowed.
+ */
+interface TeamState {
+  teams: Team[]
+  currentTeamId: string | null
+  role: TeamRole | null
+}
+
+let team: TeamState = { teams: [], currentTeamId: cached.teamId, role: null }
+
 const listeners = new Set<() => void>()
 
 function persistLocal() {
   try {
-    const payload: Cache = { ownerId: cacheOwnerId, workspace: state }
+    const payload: Cache = {
+      ownerId: cacheOwnerId,
+      teamId: team.currentTeamId,
+      workspace: state,
+    }
     localStorage.setItem(KEY, JSON.stringify(payload))
   } catch {
     /* storage full / unavailable — keep in memory */
@@ -159,10 +183,42 @@ export function useSyncState(): SyncState {
   return useSyncExternalStore(subscribe, getSyncSnapshot, getSyncSnapshot)
 }
 
+export function getTeamSnapshot(): TeamState {
+  return team
+}
+
+/** React hook: teams, the active one, and this user's role in it. */
+export function useTeamState(): TeamState {
+  return useSyncExternalStore(subscribe, getTeamSnapshot, getTeamSnapshot)
+}
+
+function setTeam(next: TeamState) {
+  team = next
+  emit()
+}
+
+/**
+ * Whether the UI should offer editing. Guests edit their own local workspace;
+ * signed-in users need a writing role. RLS enforces the same rule server-side —
+ * this only decides what to render.
+ */
+export function useCanEdit(): boolean {
+  const t = useTeamState()
+  const s = useSyncState()
+  if (s.status === 'guest') return true
+  return canWrite(t.role)
+}
+
 // ---- remote write queue -------------------------------------------------
 
 let userId: string | null = null
 let unsubscribeRemote: (() => void) | null = null
+
+/** Non-null only when signed in with a team; guest writes stay local. */
+function writeContext(): WriteContext | null {
+  if (!userId || !team.currentTeamId) return null
+  return { userId, teamId: team.currentTeamId }
+}
 let queue: Promise<unknown> = Promise.resolve()
 let pending = 0
 let reconcileQueued = false
@@ -175,7 +231,7 @@ const messageOf = (e: unknown): string =>
  * `addTask` must hit the server in that order or the task's foreign key fails.
  */
 function enqueue(op: () => Promise<void>) {
-  if (!userId || !supabase) return
+  if (!writeContext() || !supabase) return
   pending += 1
   if (sync.status !== 'error') setSync({ status: 'saving' })
   queue = queue
@@ -199,7 +255,9 @@ function scheduleReconcile() {
     reconcileQueued = false
     if (!userId) return
     try {
-      const remote = await fetchWorkspace()
+      const teamId = team.currentTeamId
+      if (!teamId) return
+      const remote = await fetchWorkspace(teamId)
       setWorkspace(remote)
       if (pending === 0) setSync({ status: 'synced', at: Date.now() })
     } catch {
@@ -243,7 +301,7 @@ function logActivity(input: ActivityInput) {
   }
   const activity = [event, ...state.activity].slice(0, ACTIVITY_LOCAL_CAP)
   setWorkspace({ ...state, activity })
-  enqueue(() => insertActivity(event, userId!))
+  enqueue(() => insertActivity(event, writeContext()!))
 }
 
 /** Newest first — the order the feed reads in. */
@@ -411,12 +469,42 @@ function merge(remote: Workspace, extra: Workspace): Workspace {
 
 let initialized = false
 
+/** Deterministic personal-team id, matching the Phase 2 migration's backfill. */
+function personalTeamId(id: string): string {
+  return `tm_${id.replace(/-/g, '').slice(0, 16)}`
+}
+
+/** Load a team's rows, replacing whatever is on screen, and resubscribe. */
+async function openTeam(teamId: string, options: { migrateGuestWork?: boolean } = {}) {
+  if (!userId) return
+  unsubscribeRemote?.()
+  unsubscribeRemote = null
+  setSync({ status: 'loading' })
+
+  const remote = await fetchWorkspace(teamId)
+  const guestWork =
+    options.migrateGuestWork && cacheOwnerId === null ? notIn(state, remote) : EMPTY_WORKSPACE
+
+  const role = await fetchMyRole(teamId)
+  cacheOwnerId = userId
+  setTeam({ ...team, currentTeamId: teamId, role })
+
+  if (hasRows(guestWork) && canWrite(role)) {
+    await pushWorkspace(guestWork, { userId, teamId })
+    setWorkspace(merge(remote, guestWork))
+  } else {
+    setWorkspace(remote)
+  }
+
+  setSync({ status: 'synced', at: Date.now() })
+  unsubscribeRemote = subscribeToWorkspace(teamId, applyRemoteChange)
+}
+
 /**
- * Point persistence at a signed-in user's rows, or back at guest mode.
+ * Point persistence at a signed-in user's team, or back at guest mode.
  *
- * On first sign-in a guest workspace is migrated up; a cache belonging to the
- * same account is replaced by server state (the server is authoritative), and
- * a cache belonging to a different account is discarded.
+ * On first sign-in a guest workspace is migrated into the team; a cache from a
+ * different account or a different team is discarded rather than shown.
  */
 export async function setSyncUser(id: string | null) {
   if (initialized && id === userId) return
@@ -431,6 +519,7 @@ export async function setSyncUser(id: string | null) {
     if (previous) {
       // Signed out — don't leave one account's work in the next person's browser.
       cacheOwnerId = null
+      setTeam({ teams: [], currentTeamId: null, role: null })
       setWorkspace(EMPTY_WORKSPACE)
     }
     setSync({ status: 'guest' })
@@ -439,27 +528,62 @@ export async function setSyncUser(id: string | null) {
 
   setSync({ status: 'loading' })
   try {
-    const remote = await fetchWorkspace()
-    const guestWork = cacheOwnerId === null ? notIn(state, remote) : EMPTY_WORKSPACE
-
-    if (cacheOwnerId !== null && cacheOwnerId !== id) {
-      // Cache belongs to someone else on this browser.
-      setWorkspace(EMPTY_WORKSPACE)
+    let teams = await fetchTeams()
+    if (teams.length === 0) {
+      // First sign-in: everyone gets a personal team so there is always
+      // somewhere for work to live. A trigger makes the creator its owner.
+      await createTeam(personalTeamId(id), 'My Workspace', id)
+      teams = await fetchTeams()
     }
 
-    cacheOwnerId = id
+    const remembered = teams.find((t) => t.id === cached.teamId)
+    const active = remembered ?? teams[0]
 
-    if (hasRows(guestWork)) {
-      await pushWorkspace(guestWork, id)
-      setWorkspace(merge(remote, guestWork))
-    } else {
-      setWorkspace(remote)
-    }
+    // A cache belonging to someone else, or to another team, must not be shown
+    // and must certainly not be pushed up as if it were this team's work.
+    const foreignCache = cacheOwnerId !== null && cacheOwnerId !== id
+    if (foreignCache) setWorkspace(EMPTY_WORKSPACE)
 
-    setSync({ status: 'synced', at: Date.now() })
-    unsubscribeRemote = subscribeToWorkspace(id, applyRemoteChange)
+    setTeam({ teams, currentTeamId: active.id, role: null })
+    await openTeam(active.id, { migrateGuestWork: !foreignCache })
   } catch (e) {
     setSync({ status: 'error', message: messageOf(e) })
+  }
+}
+
+/** Switch the active team. */
+export async function switchTeam(teamId: string) {
+  if (!userId || teamId === team.currentTeamId) return
+  try {
+    await openTeam(teamId)
+  } catch (e) {
+    setSync({ status: 'error', message: messageOf(e) })
+  }
+}
+
+/** Re-read the team list and the caller's role (after an invite or a change). */
+export async function refreshTeams() {
+  if (!userId) return
+  try {
+    const teams = await fetchTeams()
+    const role = team.currentTeamId ? await fetchMyRole(team.currentTeamId) : null
+    setTeam({ ...team, teams, role })
+  } catch (e) {
+    setSync({ status: 'error', message: messageOf(e) })
+  }
+}
+
+/** Create a team and move into it. The new team starts empty. */
+export async function createTeamAndSwitch(name: string): Promise<Team | null> {
+  if (!userId) return null
+  try {
+    const created = await createTeam(uid('tm'), name, userId)
+    setTeam({ ...team, teams: [...team.teams, created] })
+    await openTeam(created.id)
+    return created
+  } catch (e) {
+    setSync({ status: 'error', message: messageOf(e) })
+    return null
   }
 }
 
@@ -468,7 +592,7 @@ export async function setSyncUser(id: string | null) {
 export function addPortfolio(name: string, description = ''): Portfolio {
   const p: Portfolio = { id: uid('pf'), name, description, createdAt: Date.now() }
   setWorkspace({ ...state, portfolios: [...state.portfolios, p] })
-  enqueue(() => insertPortfolio(p, userId!))
+  enqueue(() => insertPortfolio(p, writeContext()!))
   logActivity({
     projectId: null,
     entityType: 'portfolio',
@@ -494,7 +618,7 @@ export function addProject(portfolioId: string, name: string, description = ''):
     createdAt: Date.now(),
   }
   setWorkspace({ ...state, projects: [...state.projects, p] })
-  enqueue(() => insertProject(p, userId!))
+  enqueue(() => insertProject(p, writeContext()!))
   logActivity({
     projectId: p.id,
     entityType: 'project',
@@ -568,7 +692,7 @@ export function addStory(
 ): Story {
   const story: Story = { id: uid('st'), projectId, createdAt: Date.now(), ...fields }
   setWorkspace({ ...state, stories: [...state.stories, story] })
-  enqueue(() => insertStory(story, userId!))
+  enqueue(() => insertStory(story, writeContext()!))
   logActivity({
     projectId,
     entityType: 'story',
@@ -654,7 +778,7 @@ export function addTask(
     createdAt: Date.now(),
   }
   setWorkspace({ ...state, tasks: [...state.tasks, task] })
-  enqueue(() => insertTask(task, userId!))
+  enqueue(() => insertTask(task, writeContext()!))
   logActivity({
     projectId,
     entityType: 'task',

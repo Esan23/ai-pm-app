@@ -61,6 +61,20 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 - **Honest save state** — the header shows Guest / Loading / Saving / Saved / Not saved (with retry), backed by `useSyncState()`.
 - **Migration on sign-in** — a guest workspace is pushed up on first sign-in; a cache belonging to the signed-in account is replaced by server state; a cache belonging to a different account is discarded on sign-out, so one person's work never lands in the next person's browser. Supabase is code-split into its own chunk, so the landing bundle is unaffected.
 
+### Teams (Phase 2)
+
+Work belongs to a **team**, not a person. `user_id` survives on every content row as "created by"; `team_id` is what RLS checks.
+
+- **Roles** — `owner` (everything, including deleting the team), `admin` (edit + manage members), `member` (edit content), `viewer` (read-only). The UI hides what your role can't do; RLS enforces it independently, so a viewer who calls an update anyway gets zero rows back.
+- **Invites** — an admin invites an email address and gets a link to send. Redeeming goes through `accept_team_invite(token)`, which checks the token **and** that it was issued to the caller's own address, so a forwarded link does nothing. Email delivery isn't wired up yet.
+- **Safety rails in the database, not just the UI** — a trigger refuses to remove or demote a team's last owner, and `activity_events` still has no update or delete policy at any role.
+- **Realtime is keyed on team**, so a teammate's edit arrives; the Phase 1 filter (`user_id`) would have ignored every change made by anyone else.
+- Teammate names and emails come from `public.profiles` through one narrow additive policy: you can read a profile only if you already share a team with that person.
+
+### Status report
+
+The **Status report** button on the board renders a Markdown summary over a 7/14/30-day window — percent complete, what shipped, what's in flight, what's overdue, what's due next, story rollups, the attribution mix for the window, and derived risks — with copy and download. It's a pure function over the data (`src/lib/report.ts`): no model call, nothing to hallucinate. An AI-written narrative on top is a natural follow-up.
+
 **To enable (one-time):** create a Supabase project → run the migrations in `supabase/migrations/` → in Netlify set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the publishable/anon key) → in Supabase **Authentication → URL Configuration**, set the Site URL and add `https://cairnpmai.netlify.app/auth/callback` (and `http://localhost:5180/auth/callback` for local) to the redirect allow-list.
 
 **Deploy:** `netlify.toml` is configured (`npm run build` → publish `dist/`, SPA fallback, asset caching). Connect the repo to Netlify or drag-drop `dist/`.
@@ -115,7 +129,7 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 - [x] Auth + cloud persistence code (Supabase magic-link + per-user workspace; guest fallback) — needs a project + env vars to activate
 - [x] **Phase 0 — trustworthy persistence**: normalized schema + RLS + realtime, row-level writes (no more last-write-wins), visible sync state, empty first-run with opt-in demo, inline task/story editing, Kanban tasks linked to stories
 - [x] **Phase 1 — trackable**: `due_date` / `completed_at` / assignee on tasks, project target date + % complete, an `activity_events` log behind a "what changed this week" view, board filters
-- [ ] **Phase 2 — shareable**: team membership + invites + roles (replacing the per-user RLS predicate), status-report export
+- [x] **Phase 2 — shareable**: teams, membership, roles (owner/admin/member/viewer) replacing the per-user RLS predicate, invite links, and Markdown status-report export
 - [ ] Azure DevOps + MCP integration spike
 - [ ] Billing (Pricing currently advertises plans with no checkout; the landing sign-up modal is still simulated)
 

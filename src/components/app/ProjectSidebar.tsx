@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PlusIcon, FolderIcon, TrashIcon } from '@heroicons/react/24/outline'
 import type { Workspace } from '../../lib/types'
-import { addProject, deleteProject, ensurePortfolio } from '../../lib/store'
+import { addProject, deleteProject, ensurePortfolio, useCanEdit } from '../../lib/store'
 
 interface SidebarProps {
   ws: Workspace
@@ -10,6 +10,7 @@ interface SidebarProps {
 }
 
 export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) {
+  const canEdit = useCanEdit()
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
 
@@ -43,6 +44,7 @@ export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) 
         <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           Projects
         </span>
+        {canEdit && (
         <button
           onClick={() => setAdding((a) => !a)}
           aria-label="Add project"
@@ -50,6 +52,7 @@ export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) 
         >
           <PlusIcon className="h-4 w-4" />
         </button>
+        )}
       </div>
 
       {adding && (
@@ -89,6 +92,7 @@ export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) 
                   {done}/{total}
                 </span>
               </button>
+              {canEdit && (
               <button
                 onClick={() => {
                   if (confirm(`Delete project "${p.name}" and its stories/tasks?`)) deleteProject(p.id)
@@ -98,12 +102,13 @@ export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) 
               >
                 <TrashIcon className="h-3.5 w-3.5" />
               </button>
+              )}
             </div>
           )
         })}
         {ws.projects.length === 0 && (
           <p className="px-3 py-6 text-center text-xs text-slate-400">
-            No projects yet. Add one above.
+            {canEdit ? 'No projects yet. Add one above.' : 'No projects shared with you yet.'}
           </p>
         )}
       </nav>
