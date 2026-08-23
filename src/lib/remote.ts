@@ -5,7 +5,7 @@ import { EMPTY_WORKSPACE } from './types'
 
 /**
  * Row-level persistence against the normalized schema
- * (supabase/migrations/20260822143000_normalized_workspace.sql).
+ * (supabase/migrations/20260823022606_normalized_workspace.sql).
  *
  * Every write touches exactly one row, so two tabs editing different tasks no
  * longer overwrite each other — the failure mode of the previous JSONB blob.
