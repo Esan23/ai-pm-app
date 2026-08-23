@@ -354,3 +354,35 @@ export function subscribeToWorkspace(
     void supabase?.removeChannel(channel)
   }
 }
+
+/**
+ * Subscribe to this team's roster so a role change reaches the session that it
+ * applies to. Without this the role is whatever it was at sign-in: an admin can
+ * demote someone to viewer and that person keeps a full set of edit controls
+ * until they reload, with every write bouncing off RLS.
+ *
+ * Filtered on team because Realtime takes a single filter expression; the
+ * caller decides whether the row is about them. DELETE payloads carry
+ * `user_id` because `team_members` is `replica identity full` — and its
+ * primary key is (team_id, user_id), so it would survive even without that.
+ */
+export function subscribeToMembership(
+  teamId: string,
+  onChange: (userId: string) => void,
+): (() => void) | null {
+  if (!supabase) return null
+  const channel: RealtimeChannel = supabase.channel(`membership:${teamId}`)
+  channel.on(
+    'postgres_changes' as any,
+    { event: '*', schema: 'public', table: 'team_members', filter: `team_id=eq.${teamId}` },
+    (payload: any) => {
+      const row = payload.eventType === 'DELETE' ? payload.old : payload.new
+      const changed = row?.user_id
+      if (typeof changed === 'string') onChange(changed)
+    },
+  )
+  channel.subscribe()
+  return () => {
+    void supabase?.removeChannel(channel)
+  }
+}
