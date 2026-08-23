@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PlusIcon, FolderIcon, TrashIcon } from '@heroicons/react/24/outline'
 import type { Workspace } from '../../lib/types'
-import { addProject, deleteProject } from '../../lib/store'
+import { addProject, deleteProject, ensurePortfolio } from '../../lib/store'
 
 interface SidebarProps {
   ws: Workspace
@@ -17,8 +17,10 @@ export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) 
 
   const submit = () => {
     const value = name.trim()
-    if (!value || !portfolio) return
-    const p = addProject(portfolio.id, value)
+    if (!value) return
+    // A workspace with no portfolio yet gets a default one rather than
+    // silently dropping the project.
+    const p = addProject(ensurePortfolio().id, value)
     setName('')
     setAdding(false)
     onSelect(p.id)

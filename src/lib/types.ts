@@ -54,3 +54,32 @@ export interface Workspace {
   stories: Story[]
   tasks: Task[]
 }
+
+export const EMPTY_WORKSPACE: Workspace = {
+  portfolios: [],
+  projects: [],
+  stories: [],
+  tasks: [],
+}
+
+export function isEmptyWorkspace(ws: Workspace): boolean {
+  return ws.portfolios.length === 0 && ws.projects.length === 0
+}
+
+/**
+ * Persistence state surfaced in the app header, so a user can tell whether
+ * their work actually reached the server.
+ *
+ * - `guest`   — signed out; localStorage only.
+ * - `loading` — pulling the signed-in workspace.
+ * - `saving`  — one or more writes in flight.
+ * - `synced`  — every write acknowledged by the server.
+ * - `error`   — the last write failed; local edits are cached and the store
+ *               re-syncs from the server to converge.
+ */
+export type SyncState =
+  | { status: 'guest' }
+  | { status: 'loading' }
+  | { status: 'saving' }
+  | { status: 'synced'; at: number }
+  | { status: 'error'; message: string }
