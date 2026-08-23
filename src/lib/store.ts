@@ -1,5 +1,8 @@
 import { useSyncExternalStore } from 'react'
 import type {
+  ActivityAction,
+  ActivityEvent,
+  EntityType,
   Portfolio,
   Project,
   Story,
@@ -9,18 +12,21 @@ import type {
   Provider,
   Workspace,
 } from './types'
-import { EMPTY_WORKSPACE } from './types'
+import { EMPTY_WORKSPACE, STATUS_LABELS } from './types'
 import { DEMO_PORTFOLIO } from './seed'
+import { formatDay, toDayString } from './dates'
 import { supabase } from './supabase'
 import {
   deleteRow,
   fetchWorkspace,
+  insertActivity,
   insertPortfolio,
   insertProject,
   insertStory,
   insertTask,
   pushWorkspace,
   subscribeToWorkspace,
+  toActivity,
   toPortfolio,
   toProject,
   toStory,
@@ -44,6 +50,9 @@ import {
 const KEY = 'cairn-workspace-v2'
 const LEGACY_KEY = 'cairn-workspace-v1'
 
+/** Local history cap. The server keeps everything; the browser keeps recent. */
+const ACTIVITY_LOCAL_CAP = 500
+
 interface Cache {
   /** Which account this cache belongs to; null = guest. */
   ownerId: string | null
@@ -58,6 +67,26 @@ function uid(prefix: string): string {
   return `${prefix}_${rand}`
 }
 
+/**
+ * Fill in fields a cache written by an older build never had. Without this a
+ * pre-Phase-1 task arrives with `dueDate: undefined`, which slips past a
+ * `!== null` guard and reaches the date parser as undefined.
+ */
+function normalizeWorkspace(ws: Workspace): Workspace {
+  return {
+    portfolios: ws.portfolios ?? [],
+    projects: (ws.projects ?? []).map((p) => ({ ...p, targetDate: p.targetDate ?? null })),
+    stories: ws.stories ?? [],
+    tasks: (ws.tasks ?? []).map((t) => ({
+      ...t,
+      assignee: t.assignee ?? null,
+      dueDate: t.dueDate ?? null,
+      completedAt: t.completedAt ?? null,
+    })),
+    activity: ws.activity ?? [],
+  }
+}
+
 function loadCache(): Cache {
   if (typeof window === 'undefined') return { ownerId: null, workspace: EMPTY_WORKSPACE }
   try {
@@ -67,7 +96,10 @@ function loadCache(): Cache {
     if (!raw) return { ownerId: null, workspace: EMPTY_WORKSPACE }
     const parsed = JSON.parse(raw) as Cache
     if (!parsed?.workspace?.portfolios) return { ownerId: null, workspace: EMPTY_WORKSPACE }
-    return { ownerId: parsed.ownerId ?? null, workspace: parsed.workspace }
+    return {
+      ownerId: parsed.ownerId ?? null,
+      workspace: normalizeWorkspace({ ...EMPTY_WORKSPACE, ...parsed.workspace }),
+    }
   } catch {
     return { ownerId: null, workspace: EMPTY_WORKSPACE }
   }
@@ -183,6 +215,100 @@ export function retrySync() {
   scheduleReconcile()
 }
 
+// ---- activity -----------------------------------------------------------
+
+interface ActivityInput {
+  projectId: string | null
+  entityType: EntityType
+  entityId: string
+  entityTitle: string
+  action: ActivityAction
+  detail?: string
+}
+
+/**
+ * Record what just happened. Written client-side rather than by a database
+ * trigger so guest mode keeps a history too — the app has to work signed out.
+ */
+function logActivity(input: ActivityInput) {
+  const event: ActivityEvent = {
+    id: uid('ac'),
+    projectId: input.projectId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    entityTitle: input.entityTitle,
+    action: input.action,
+    detail: input.detail ?? '',
+    createdAt: Date.now(),
+  }
+  const activity = [event, ...state.activity].slice(0, ACTIVITY_LOCAL_CAP)
+  setWorkspace({ ...state, activity })
+  enqueue(() => insertActivity(event, userId!))
+}
+
+/** Newest first — the order the feed reads in. */
+function sortActivity(events: ActivityEvent[]): ActivityEvent[] {
+  return [...events].sort((a, b) => b.createdAt - a.createdAt).slice(0, ACTIVITY_LOCAL_CAP)
+}
+
+type TaskPatch = Partial<Omit<Task, 'id' | 'createdAt' | 'projectId'>>
+
+const describeDate = (day: string | null): string => (day ? formatDay(day) : 'no date')
+
+/**
+ * Turn a task edit into one feed entry. A single save from the detail panel can
+ * change several fields; the most significant one names the event and the rest
+ * ride along in the detail, rather than spraying four entries into the feed.
+ */
+function describeTaskPatch(
+  prev: Task,
+  patch: TaskPatch,
+): { action: ActivityAction; detail: string } | null {
+  const changes: { action: ActivityAction; rank: number; text: string }[] = []
+
+  if (patch.status !== undefined && patch.status !== prev.status) {
+    changes.push({
+      action: patch.status === 'done' ? 'completed' : prev.status === 'done' ? 'reopened' : 'status_changed',
+      rank: 6,
+      text: `${STATUS_LABELS[prev.status]} → ${STATUS_LABELS[patch.status]}`,
+    })
+  }
+  if (patch.assignee !== undefined && patch.assignee !== prev.assignee) {
+    changes.push({
+      action: 'assigned',
+      rank: 5,
+      text: patch.assignee ? `assigned to ${patch.assignee}` : 'unassigned',
+    })
+  }
+  if (patch.dueDate !== undefined && patch.dueDate !== prev.dueDate) {
+    changes.push({
+      action: 'scheduled',
+      rank: 4,
+      text: patch.dueDate
+        ? `due ${describeDate(patch.dueDate)}`
+        : `due date cleared (was ${describeDate(prev.dueDate)})`,
+    })
+  }
+  if (patch.title !== undefined && patch.title !== prev.title) {
+    changes.push({ action: 'renamed', rank: 3, text: `renamed from "${prev.title}"` })
+  }
+  if (patch.provider !== undefined && patch.provider !== prev.provider) {
+    changes.push({ action: 'updated', rank: 2, text: `${prev.provider} → ${patch.provider}` })
+  }
+  if (patch.storyId !== undefined && patch.storyId !== prev.storyId) {
+    const story = state.stories.find((s) => s.id === patch.storyId)
+    changes.push({
+      action: 'updated',
+      rank: 1,
+      text: story ? `linked to "${story.title}"` : 'unlinked from its story',
+    })
+  }
+
+  if (changes.length === 0) return null
+  const headline = changes.reduce((best, c) => (c.rank > best.rank ? c : best))
+  return { action: headline.action, detail: changes.map((c) => c.text).join(' · ') }
+}
+
 // ---- inbound realtime ---------------------------------------------------
 
 function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
@@ -238,6 +364,15 @@ function applyRemoteChange(change: RemoteChange) {
           : upsertById(state.tasks, toTask(change.row)),
       })
       break
+    case 'activity_events':
+      // Append-only server-side; a delete can only mean a cascade.
+      setWorkspace({
+        ...state,
+        activity: removing
+          ? state.activity.filter((e) => e.id !== id)
+          : sortActivity(upsertById(state.activity, toActivity(change.row))),
+      })
+      break
   }
 }
 
@@ -260,6 +395,7 @@ function notIn(local: Workspace, remote: Workspace): Workspace {
     projects: local.projects.filter((p) => !has(remote.projects, p.id)),
     stories: local.stories.filter((s) => !has(remote.stories, s.id)),
     tasks: local.tasks.filter((t) => !has(remote.tasks, t.id)),
+    activity: local.activity.filter((e) => !has(remote.activity, e.id)),
   }
 }
 
@@ -269,6 +405,7 @@ function merge(remote: Workspace, extra: Workspace): Workspace {
     projects: [...remote.projects, ...extra.projects],
     stories: [...remote.stories, ...extra.stories],
     tasks: [...remote.tasks, ...extra.tasks],
+    activity: sortActivity([...remote.activity, ...extra.activity]),
   }
 }
 
@@ -332,6 +469,13 @@ export function addPortfolio(name: string, description = ''): Portfolio {
   const p: Portfolio = { id: uid('pf'), name, description, createdAt: Date.now() }
   setWorkspace({ ...state, portfolios: [...state.portfolios, p] })
   enqueue(() => insertPortfolio(p, userId!))
+  logActivity({
+    projectId: null,
+    entityType: 'portfolio',
+    entityId: p.id,
+    entityTitle: p.name,
+    action: 'created',
+  })
   return p
 }
 
@@ -341,21 +485,63 @@ export function ensurePortfolio(): Portfolio {
 }
 
 export function addProject(portfolioId: string, name: string, description = ''): Project {
-  const p: Project = { id: uid('pr'), portfolioId, name, description, createdAt: Date.now() }
+  const p: Project = {
+    id: uid('pr'),
+    portfolioId,
+    name,
+    description,
+    targetDate: null,
+    createdAt: Date.now(),
+  }
   setWorkspace({ ...state, projects: [...state.projects, p] })
   enqueue(() => insertProject(p, userId!))
+  logActivity({
+    projectId: p.id,
+    entityType: 'project',
+    entityId: p.id,
+    entityTitle: p.name,
+    action: 'created',
+  })
   return p
 }
 
-export function updateProject(id: string, patch: Partial<Pick<Project, 'name' | 'description'>>) {
+export function updateProject(
+  id: string,
+  patch: Partial<Pick<Project, 'name' | 'description' | 'targetDate'>>,
+) {
+  const prev = state.projects.find((p) => p.id === id)
+  if (!prev) return
   setWorkspace({
     ...state,
     projects: state.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)),
   })
   enqueue(() => updateRow('projects', id, patch))
+
+  if (patch.targetDate !== undefined && patch.targetDate !== prev.targetDate) {
+    logActivity({
+      projectId: id,
+      entityType: 'project',
+      entityId: id,
+      entityTitle: patch.name ?? prev.name,
+      action: 'scheduled',
+      detail: patch.targetDate
+        ? `target ${describeDate(patch.targetDate)}`
+        : `target cleared (was ${describeDate(prev.targetDate)})`,
+    })
+  } else if (patch.name !== undefined && patch.name !== prev.name) {
+    logActivity({
+      projectId: id,
+      entityType: 'project',
+      entityId: id,
+      entityTitle: patch.name,
+      action: 'renamed',
+      detail: `renamed from "${prev.name}"`,
+    })
+  }
 }
 
 export function deleteProject(id: string) {
+  const prev = state.projects.find((p) => p.id === id)
   setWorkspace({
     ...state,
     projects: state.projects.filter((p) => p.id !== id),
@@ -364,6 +550,16 @@ export function deleteProject(id: string) {
   })
   // Stories and tasks go with it server-side (on delete cascade).
   enqueue(() => deleteRow('projects', id))
+  if (prev) {
+    // projectId null: the project's own activity rows cascade away with it.
+    logActivity({
+      projectId: null,
+      entityType: 'project',
+      entityId: id,
+      entityTitle: prev.name,
+      action: 'deleted',
+    })
+  }
 }
 
 export function addStory(
@@ -373,6 +569,13 @@ export function addStory(
   const story: Story = { id: uid('st'), projectId, createdAt: Date.now(), ...fields }
   setWorkspace({ ...state, stories: [...state.stories, story] })
   enqueue(() => insertStory(story, userId!))
+  logActivity({
+    projectId,
+    entityType: 'story',
+    entityId: story.id,
+    entityTitle: story.title,
+    action: 'created',
+  })
   return story
 }
 
@@ -380,14 +583,33 @@ export function updateStory(
   id: string,
   patch: Partial<Pick<Story, 'title' | 'asA' | 'iWant' | 'soThat' | 'priority'>>,
 ) {
+  const prev = state.stories.find((s) => s.id === id)
+  if (!prev) return
   setWorkspace({
     ...state,
     stories: state.stories.map((s) => (s.id === id ? { ...s, ...patch } : s)),
   })
   enqueue(() => updateRow('stories', id, patch))
+
+  const renamed = patch.title !== undefined && patch.title !== prev.title
+  const reprioritized = patch.priority !== undefined && patch.priority !== prev.priority
+  logActivity({
+    projectId: prev.projectId,
+    entityType: 'story',
+    entityId: id,
+    entityTitle: patch.title ?? prev.title,
+    action: renamed ? 'renamed' : 'updated',
+    detail: [
+      renamed ? `renamed from "${prev.title}"` : '',
+      reprioritized ? `priority ${prev.priority} → ${patch.priority}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  })
 }
 
 export function deleteStory(id: string) {
+  const prev = state.stories.find((s) => s.id === id)
   setWorkspace({
     ...state,
     stories: state.stories.filter((s) => s.id !== id),
@@ -395,30 +617,80 @@ export function deleteStory(id: string) {
     tasks: state.tasks.map((t) => (t.storyId === id ? { ...t, storyId: null } : t)),
   })
   enqueue(() => deleteRow('stories', id))
+  if (prev) {
+    logActivity({
+      projectId: prev.projectId,
+      entityType: 'story',
+      entityId: id,
+      entityTitle: prev.title,
+      action: 'deleted',
+      detail: 'its tasks were kept',
+    })
+  }
 }
 
 export function addTask(
   projectId: string,
   title: string,
-  opts: { storyId?: string | null; provider?: Provider; status?: TaskStatus } = {},
+  opts: {
+    storyId?: string | null
+    provider?: Provider
+    status?: TaskStatus
+    assignee?: string | null
+    dueDate?: string | null
+  } = {},
 ): Task {
+  const status = opts.status ?? 'todo'
   const task: Task = {
     id: uid('tk'),
     projectId,
     storyId: opts.storyId ?? null,
     title,
-    status: opts.status ?? 'todo',
+    status,
     provider: opts.provider ?? 'Human',
+    assignee: opts.assignee ?? null,
+    dueDate: opts.dueDate ?? null,
+    completedAt: status === 'done' ? Date.now() : null,
     createdAt: Date.now(),
   }
   setWorkspace({ ...state, tasks: [...state.tasks, task] })
   enqueue(() => insertTask(task, userId!))
+  logActivity({
+    projectId,
+    entityType: 'task',
+    entityId: task.id,
+    entityTitle: task.title,
+    action: 'created',
+    detail: status === 'todo' ? '' : `in ${STATUS_LABELS[status]}`,
+  })
   return task
 }
 
-export function updateTask(id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) {
-  setWorkspace({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })
-  enqueue(() => updateRow('tasks', id, patch))
+export function updateTask(id: string, patch: TaskPatch) {
+  const prev = state.tasks.find((t) => t.id === id)
+  if (!prev) return
+
+  // Completion is derived, never hand-set: status is the single source of truth
+  // (the database enforces the same rule with a trigger).
+  const full: TaskPatch = { ...patch }
+  if (patch.status !== undefined && patch.status !== prev.status) {
+    full.completedAt = patch.status === 'done' ? Date.now() : null
+  }
+
+  const change = describeTaskPatch(prev, patch)
+  setWorkspace({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...full } : t)) })
+  enqueue(() => updateRow('tasks', id, full))
+
+  if (change) {
+    logActivity({
+      projectId: prev.projectId,
+      entityType: 'task',
+      entityId: id,
+      entityTitle: patch.title ?? prev.title,
+      action: change.action,
+      detail: change.detail,
+    })
+  }
 }
 
 export function moveTask(id: string, status: TaskStatus) {
@@ -426,8 +698,18 @@ export function moveTask(id: string, status: TaskStatus) {
 }
 
 export function deleteTask(id: string) {
+  const prev = state.tasks.find((t) => t.id === id)
   setWorkspace({ ...state, tasks: state.tasks.filter((t) => t.id !== id) })
   enqueue(() => deleteRow('tasks', id))
+  if (prev) {
+    logActivity({
+      projectId: prev.projectId,
+      entityType: 'task',
+      entityId: id,
+      entityTitle: prev.title,
+      action: 'deleted',
+    })
+  }
 }
 
 /**
@@ -436,11 +718,20 @@ export function deleteTask(id: string) {
  * user's demo lands in their account in parent-first order.
  */
 export function loadDemoWorkspace(): Project | null {
+  const dayFromNow = (offset: number): string => {
+    const d = new Date()
+    d.setDate(d.getDate() + offset)
+    return toDayString(d)
+  }
+
   const portfolio = addPortfolio(DEMO_PORTFOLIO.name, DEMO_PORTFOLIO.description)
   let first: Project | null = null
   for (const project of DEMO_PORTFOLIO.projects) {
     const created = addProject(portfolio.id, project.name, project.description)
     if (!first) first = created
+    if (project.targetInDays !== undefined) {
+      updateProject(created.id, { targetDate: dayFromNow(project.targetInDays) })
+    }
     for (const story of project.stories) {
       const { tasks, ...fields } = story
       const createdStory = addStory(created.id, fields)
@@ -449,6 +740,8 @@ export function loadDemoWorkspace(): Project | null {
           storyId: createdStory.id,
           provider: task.provider,
           status: task.status,
+          assignee: task.assignee,
+          dueDate: task.dueInDays === undefined ? null : dayFromNow(task.dueInDays),
         })
       }
     }

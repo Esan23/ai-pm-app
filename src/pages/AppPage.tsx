@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useWorkspace, useSyncState, setSyncUser } from '../lib/store'
 import { AuthProvider, useAuth } from '../lib/auth'
 import { AppHeader } from '../components/app/AppHeader'
 import { ProjectSidebar } from '../components/app/ProjectSidebar'
+import { ProjectHeader } from '../components/app/ProjectHeader'
 import { CaptureBar } from '../components/app/CaptureBar'
 import { StoryList } from '../components/app/StoryList'
 import { KanbanBoard } from '../components/app/KanbanBoard'
 import { AttributionSummary } from '../components/app/AttributionSummary'
+import { ActivityFeed } from '../components/app/ActivityFeed'
 import { EmptyWorkspace } from '../components/app/EmptyWorkspace'
+import {
+  BoardFilters,
+  NO_FILTERS,
+  filterTasks,
+  isFiltered,
+  type BoardFilterState,
+} from '../components/app/BoardFilters'
 
 export default function AppPage() {
   return (
@@ -22,6 +31,7 @@ function Workspace() {
   const sync = useSyncState()
   const { user, loading: authLoading } = useAuth()
   const [activeId, setActiveId] = useState<string | null>(ws.projects[0]?.id ?? null)
+  const [filters, setFilters] = useState<BoardFilterState>(NO_FILTERS)
 
   // Switch persistence between guest (localStorage) and the signed-in user's
   // rows. Held until auth resolves so a returning session isn't treated as a
@@ -37,9 +47,20 @@ function Workspace() {
     setActiveId(ws.projects[0]?.id ?? null)
   }, [ws.projects, activeId])
 
+  // A filter set for one project would be misleading on the next.
+  useEffect(() => setFilters(NO_FILTERS), [activeId])
+
   const project = ws.projects.find((p) => p.id === activeId) ?? null
   const stories = ws.stories.filter((s) => s.projectId === activeId)
-  const tasks = ws.tasks.filter((t) => t.projectId === activeId)
+  const tasks = useMemo(
+    () => ws.tasks.filter((t) => t.projectId === activeId),
+    [ws.tasks, activeId],
+  )
+  const visibleTasks = useMemo(() => filterTasks(tasks, filters), [tasks, filters])
+  const activity = useMemo(
+    () => ws.activity.filter((e) => e.projectId === activeId),
+    [ws.activity, activeId],
+  )
   const isLoading = authLoading || sync.status === 'loading'
 
   return (
@@ -80,16 +101,7 @@ function Workspace() {
             </div>
           ) : project ? (
             <div className="space-y-6">
-              <div>
-                <h1 className="font-display text-h3 font-bold text-slate-900 dark:text-white">
-                  {project.name}
-                </h1>
-                {project.description && (
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    {project.description}
-                  </p>
-                )}
-              </div>
+              <ProjectHeader project={project} tasks={tasks} />
 
               <CaptureBar projectId={project.id} />
 
@@ -99,19 +111,36 @@ function Workspace() {
                     <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
                       Execution board
                     </h2>
-                    <KanbanBoard projectId={project.id} tasks={tasks} stories={stories} />
+                    <BoardFilters
+                      value={filters}
+                      onChange={setFilters}
+                      tasks={tasks}
+                      matched={visibleTasks.length}
+                    />
+                    <KanbanBoard
+                      projectId={project.id}
+                      tasks={visibleTasks}
+                      stories={stories}
+                    />
+                    {isFiltered(filters) && visibleTasks.length === 0 && tasks.length > 0 && (
+                      <p className="mt-3 text-center text-xs text-slate-400">
+                        No tasks match these filters.
+                      </p>
+                    )}
                   </section>
 
                   <section>
                     <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
                       User stories
                     </h2>
+                    {/* Stories always summarize every task, filtered or not. */}
                     <StoryList stories={stories} tasks={tasks} />
                   </section>
                 </div>
 
                 <div className="space-y-6">
                   <AttributionSummary tasks={tasks} />
+                  <ActivityFeed events={activity} />
                 </div>
               </div>
             </div>
