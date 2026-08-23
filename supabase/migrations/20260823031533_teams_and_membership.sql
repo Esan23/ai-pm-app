@@ -397,3 +397,14 @@ begin
   end loop;
 end;
 $$;
+
+-- ------------------------------------------- lock down trigger functions --
+-- A trigger fires in the table owner's context, not the caller's, so these
+-- need no EXECUTE grant. Without this they sit on /rest/v1/rpc/... as callable
+-- SECURITY DEFINER functions for no reason (flagged by the Supabase linter).
+
+revoke all on function public.add_team_creator_as_owner() from public, anon, authenticated;
+revoke all on function public.protect_last_owner()        from public, anon, authenticated;
+revoke all on function public.default_team_id()           from public, anon, authenticated;
+revoke all on function public.touch_updated_at()          from public, anon, authenticated;
+revoke all on function public.sync_task_completed_at()    from public, anon, authenticated;
