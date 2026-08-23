@@ -41,7 +41,12 @@ A working MVP of the product, reachable from the landing "Open app" / "Start fre
 - **Portfolio → Project → User Story → Task** hierarchy with a project sidebar.
 - **Execution board** — a drag-and-drop Kanban (To do / In progress / Done) where every task carries **provider attribution** (Human / Claude / ChatGPT / Copilot / Gemini), the product's core differentiator. An **AI attribution** panel summarizes who/what shipped the work.
 - **Capture** — describe what you're building and Cairn deconstructs it into user stories + tasks. A **Netlify function** (`netlify/functions/capture.ts`) calls **Claude (`claude-opus-4-8`, forced tool-use for structured JSON)** to produce the backlog; the client (`src/lib/capture.ts`) calls it and **gracefully falls back to a local heuristic** when the function is unreachable (plain `vite dev`) or runs in demo mode (no `ANTHROPIC_API_KEY`). The preview labels each result "via Claude" or "demo heuristic". Set `ANTHROPIC_API_KEY` in the Netlify dashboard to enable the real model.
-- Runs entirely in **guest mode**, persisted to `localStorage` (`src/lib/store.ts`), so it's demoable with no backend. A "Reset" button restores the seed demo workspace.
+- **Editable in place** — task titles rename inline, tasks can be linked to (or detached from) a user story straight from the card, and stories are editable/deletable (deleting a story keeps its tasks). Story progress therefore counts every task, not just the ones Capture generated. A **task detail panel** (the expand icon on a card) holds status, owner, due date, attribution, story link, and the created/completed stamps.
+- **Progress tracking** — tasks carry a **due date**, an **owner**, and a **completion timestamp** (set when a task enters Done, cleared when it leaves — enforced by a database trigger as well as the client, so status and `completed_at` cannot drift). Cards show due-date chips that go amber today and red once overdue; the project header shows **percent complete, N of M done, an overdue count, and an editable target date**.
+- **Activity feed** — every mutation writes an `activity_events` row, so the right rail answers **"what changed this week"** (grouped by day, with a Show-all toggle). A multi-field save reads as one line — `Done → In progress · assigned to Ana` — rather than five. Written client-side, so guest mode keeps a history too.
+- **Board filters** — search, owner, attribution, and due-date (overdue / due within 7 days / no due date), with a match count. Filters narrow the board only; the story rollups and attribution mix always summarize the whole project.
+- **Starts empty.** A new workspace opens on a "Track your first project" state; the demo portfolio is opt-in ("explore with demo data") rather than seeded, so nobody has to delete fictional data before tracking their own.
+- Runs entirely in **guest mode**, persisted to `localStorage` (`src/lib/store.ts`), so it's demoable with no backend.
 
 Routing is `react-router-dom` v7: `/` (landing), `/app` (workspace), `/auth/callback` (magic-link return) — all lazy-loaded.
 
@@ -50,9 +55,27 @@ Routing is `react-router-dom` v7: `/` (landing), `/app` (workspace), `/auth/call
 Optional and **off by default** — the app is fully usable as a guest. When `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set, the workspace syncs to a signed-in account:
 
 - **Magic-link auth** (`src/lib/auth.tsx`, `src/lib/supabase.ts`) — passwordless email sign-in via `signInWithOtp`. The header shows "Sign in" / the signed-in email; unconfigured builds show the guest badge and no sign-in.
-- **Per-user persistence** — `src/lib/store.ts` mirrors the whole workspace to a single `workspaces` JSONB row per user (schema + RLS in `supabase/migrations/0001_workspaces.sql`). On first sign-in the local guest workspace is migrated up; guest mode (no user) is unchanged (localStorage only). Supabase is code-split into its own chunk, so the landing bundle is unaffected.
+- **Per-user persistence, one row at a time** — the workspace lives in real `portfolios` / `projects` / `stories` / `tasks` tables (schema, RLS, and the JSONB back-fill in `supabase/migrations/20260823022606_normalized_workspace.sql`). `src/lib/remote.ts` maps rows to domain objects; `src/lib/store.ts` applies every mutation optimistically to local state and enqueues a **single-row** write.
 
-**To enable (one-time):** create a Supabase project → run `supabase/migrations/0001_workspaces.sql` → in Netlify set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the publishable/anon key) → in Supabase **Authentication → URL Configuration**, set the Site URL and add `https://cairnpmai.netlify.app/auth/callback` (and `http://localhost:5180/auth/callback` for local) to the redirect allow-list.
+  This replaced a whole-workspace JSONB blob that was rewritten on an 800 ms debounce, which made concurrent edits last-write-wins — a second tab or device silently erased the first. Writes are now serialized through one promise chain (so a child never reaches the server before its parent), inbound **realtime** events merge remote changes in, and a failed write surfaces in the header and re-syncs from the server instead of being swallowed.
+- **Honest save state** — the header shows Guest / Loading / Saving / Saved / Not saved (with retry), backed by `useSyncState()`.
+- **Migration on sign-in** — a guest workspace is pushed up on first sign-in; a cache belonging to the signed-in account is replaced by server state; a cache belonging to a different account is discarded on sign-out, so one person's work never lands in the next person's browser. Supabase is code-split into its own chunk, so the landing bundle is unaffected.
+
+### Teams (Phase 2)
+
+Work belongs to a **team**, not a person. `user_id` survives on every content row as "created by"; `team_id` is what RLS checks.
+
+- **Roles** — `owner` (everything, including deleting the team), `admin` (edit + manage members), `member` (edit content), `viewer` (read-only). The UI hides what your role can't do; RLS enforces it independently, so a viewer who calls an update anyway gets zero rows back.
+- **Invites** — an admin invites an email address and gets a link to send. Redeeming goes through `accept_team_invite(token)`, which checks the token **and** that it was issued to the caller's own address, so a forwarded link does nothing. Email delivery isn't wired up yet.
+- **Safety rails in the database, not just the UI** — a trigger refuses to remove or demote a team's last owner, and `activity_events` still has no update or delete policy at any role.
+- **Realtime is keyed on team**, so a teammate's edit arrives; the Phase 1 filter (`user_id`) would have ignored every change made by anyone else.
+- Teammate names and emails come from `public.profiles` through one narrow additive policy: you can read a profile only if you already share a team with that person.
+
+### Status report
+
+The **Status report** button on the board renders a Markdown summary over a 7/14/30-day window — percent complete, what shipped, what's in flight, what's overdue, what's due next, story rollups, the attribution mix for the window, and derived risks — with copy and download. It's a pure function over the data (`src/lib/report.ts`): no model call, nothing to hallucinate. An AI-written narrative on top is a natural follow-up.
+
+**To enable (one-time):** create a Supabase project → run the migrations in `supabase/migrations/` → in Netlify set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the publishable/anon key) → in Supabase **Authentication → URL Configuration**, set the Site URL and add `https://cairnpmai.netlify.app/auth/callback` (and `http://localhost:5180/auth/callback` for local) to the redirect allow-list.
 
 **Deploy:** `netlify.toml` is configured (`npm run build` → publish `dist/`, SPA fallback, asset caching). Connect the repo to Netlify or drag-drop `dist/`.
 
@@ -104,7 +127,11 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 - [x] App MVP scaffold — /app workspace (hierarchy, Kanban, AI capture, attribution) in guest mode
 - [x] Server-side LLM capture (Claude via a Netlify function, demo fallback)
 - [x] Auth + cloud persistence code (Supabase magic-link + per-user workspace; guest fallback) — needs a project + env vars to activate
+- [x] **Phase 0 — trustworthy persistence**: normalized schema + RLS + realtime, row-level writes (no more last-write-wins), visible sync state, empty first-run with opt-in demo, inline task/story editing, Kanban tasks linked to stories
+- [x] **Phase 1 — trackable**: `due_date` / `completed_at` / assignee on tasks, project target date + % complete, an `activity_events` log behind a "what changed this week" view, board filters
+- [x] **Phase 2 — shareable**: teams, membership, roles (owner/admin/member/viewer) replacing the per-user RLS predicate, invite links, and Markdown status-report export
 - [ ] Azure DevOps + MCP integration spike
+- [ ] Billing (Pricing currently advertises plans with no checkout; the landing sign-up modal is still simulated)
 
 ---
 
