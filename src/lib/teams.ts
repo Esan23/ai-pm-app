@@ -48,14 +48,26 @@ export async function fetchTeams(): Promise<Team[]> {
 
 export async function createTeam(id: string, name: string, userId: string): Promise<Team> {
   if (!supabase) throw new Error('Not connected')
-  // A trigger adds the creator as owner in the same transaction, so the team is
-  // never briefly memberless (and therefore invisible to its own creator).
-  const { data, error } = await supabase
-    .from('teams')
-    .insert({ id, name, created_by: userId })
-    .select()
-    .single()
+
+  // Two statements on purpose — do NOT collapse this into .insert().select().
+  //
+  // Membership is granted by an AFTER INSERT trigger, but `INSERT ... RETURNING`
+  // evaluates the SELECT policy *before* AFTER triggers run. At that instant the
+  // creator is not yet a member, so `is_team_member(id)` is false, the row is
+  // refused, and PostgREST rolls the whole request back — leaving the user with
+  // no team at all. That broke first sign-in for every new account.
+  //
+  // By the time the second statement runs, the trigger has committed and the
+  // creator can read their own team.
+  const { error } = await supabase.from('teams').insert({ id, name, created_by: userId })
   fail('create team', error)
+
+  const { data, error: readError } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('id', id)
+    .single()
+  fail('load the new team', readError)
   return toTeam(data)
 }
 
@@ -145,6 +157,9 @@ export async function createInvite(
   invitedBy: string,
 ): Promise<TeamInvite> {
   if (!supabase) throw new Error('Not connected')
+  // .select() is safe here, unlike in createTeam: the invites SELECT policy is
+  // `is_team_member(team_id)` and the inviter is already a member, so RETURNING
+  // is visible without waiting on any trigger.
   const { data, error } = await supabase
     .from('team_invites')
     .insert({ id, team_id: teamId, email: email.trim().toLowerCase(), role, invited_by: invitedBy })
