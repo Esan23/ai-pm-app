@@ -44,7 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     if (!supabase) return
-    await supabase.auth.signOut()
+    // scope: 'local' signs out this browser only.
+    //
+    // supabase-js defaults to 'global', which revokes every refresh token the
+    // account holds — so signing out on a laptop also signed the user out on
+    // their phone, and on every other machine. That is a "sign out everywhere"
+    // action, not a sign-out, and nobody asked for it.
+    //
+    // Other tabs in the *same* browser still sign out, because they share one
+    // stored session. That part is correct.
+    await supabase.auth.signOut({ scope: 'local' })
     setUser(null)
   }
 
