@@ -155,7 +155,7 @@ A read-only import sidesteps it entirely for a demo: paste a PAT, import once, d
 
 | Slice | Scope | Estimate | Needs Entra? |
 |---|---|---|---|
-| **A. Import** | Paste org/project/PAT → preview → create a Cairn portfolio from an ADO project | **~1 day** | No |
+| **A. Import** ✅ **built** | Paste org/project/PAT → preview → create a Cairn portfolio from an ADO project | **~1 day** | No |
 | B. Status push | Cairn task status → ADO state, one way, with `/rev` guard | ~2–3 days | Yes |
 | C. Two-way | Watermark pull + hooks + conflict surface + identity map | ~1 week | Yes |
 
@@ -164,6 +164,21 @@ Slice A is the whole demo value: it proves the hierarchy claim, imports real wor
 **Do A next. Do not start B until Entra registration exists**, because B without it just accumulates PAT-shaped debt.
 
 ---
+
+## 8b. What slice A actually shipped
+
+`netlify/functions/ado-import.ts` (read-only pass-through), `src/lib/adoImport.ts` (preview types + apply), and `src/components/app/AdoImportModal.tsx` (preview-then-commit UI), reachable from the empty state and the project sidebar.
+
+Decisions made while building, beyond what §3 assumed:
+
+- **An ADO project imports as ONE Cairn portfolio.** §9.3 left this open; the answer came from the UI rather than from ADO. Cairn's sidebar renders `portfolios[0]`, so importing Epics as portfolios would have hidden every one but the first. Features become projects and **Epics survive as each project's description** rather than being dropped.
+- **Nothing is discarded for want of a parent.** A story whose Feature was outside the import, or a task with no story, lands in an `Unsorted` project created only if something needs it. Losing rows silently would be worse than an untidy import.
+- **Completion times are preserved, not stamped.** `addTask` gained an optional `completedAt` for this. Without it every imported Done task would read as completed at the moment of import, and the status report would claim they all shipped today.
+- **Preview before commit.** Import writes a whole portfolio and there is no undo.
+
+Verified against the live API — 41 work items → 7 projects, 20 stories, 12 tasks, all 9 done tasks carrying real `ClosedDate`, and the PAT absent from the response. Failure paths return usable messages: a bad token, a missing field, an injection-shaped org name, an unknown project, and a GET all fail distinctly.
+
+Still true of slice A: **re-importing the same project creates a second copy.** There is no link back to ADO, which is what §9.2 and a future `ado_id` column would fix.
 
 ## 9. Open questions
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { FolderPlusIcon, SparklesIcon } from '@heroicons/react/24/outline'
+import { ArrowDownTrayIcon, FolderPlusIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { addProject, ensurePortfolio, loadDemoWorkspace } from '../../lib/store'
+import { AdoImportModal } from './AdoImportModal'
 
 /**
  * First-run state. A new account starts empty and is asked what it's working
@@ -9,6 +10,7 @@ import { addProject, ensurePortfolio, loadDemoWorkspace } from '../../lib/store'
  */
 export function EmptyWorkspace({ onReady }: { onReady: (projectId: string) => void }) {
   const [name, setName] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
 
   const create = () => {
     const value = name.trim()
@@ -50,7 +52,14 @@ export function EmptyWorkspace({ onReady }: { onReady: (projectId: string) => vo
         </button>
       </div>
 
-      <div className="mt-6 border-t border-slate-200 pt-4 dark:border-white/10">
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
+        <button
+          onClick={() => setImportOpen(true)}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-signal-600 dark:text-slate-400 dark:hover:text-signal-300"
+        >
+          <ArrowDownTrayIcon className="h-4 w-4" />
+          Import from Azure DevOps
+        </button>
         <button
           onClick={() => {
             const project = loadDemoWorkspace()
@@ -62,6 +71,13 @@ export function EmptyWorkspace({ onReady }: { onReady: (projectId: string) => vo
           Or explore with demo data
         </button>
       </div>
+
+      {importOpen && (
+        <AdoImportModal
+          onClose={() => setImportOpen(false)}
+          onImported={(projectId) => projectId && onReady(projectId)}
+        />
+      )}
     </div>
   )
 }
