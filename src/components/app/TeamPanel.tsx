@@ -108,16 +108,16 @@ export function TeamPanel({ currentUserId, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[55] grid place-items-center p-4">
+    <div className="fixed inset-0 z-[55] grid place-items-center p-4 sm:p-6">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby="team-panel-title"
-        className="card relative max-h-[85vh] w-full max-w-xl overflow-y-auto p-6"
+        className="card relative flex max-h-[85vh] w-full max-w-xl flex-col"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-white/10">
           <div>
             <h2 id="team-panel-title" className="font-display text-h5 font-bold text-slate-900 dark:text-white">
               {team?.name ?? 'Team'}
@@ -136,14 +136,17 @@ export function TeamPanel({ currentUserId, onClose }: Props) {
           </button>
         </div>
 
-        {error && (
+        {/* Only this middle section scrolls, so the title and both close
+            actions stay reachable however long the roster gets. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {error && (
           <p className="mt-3 rounded-lg bg-error-100 px-3 py-2 text-xs text-error-700 dark:bg-error-500/15 dark:text-error-300">
             {error}
           </p>
         )}
 
         {/* Roster */}
-        <ul className="mt-4 space-y-1.5">
+        <ul className="space-y-1.5">
           {members.map((m) => {
             const isSelf = m.userId === currentUserId
             return (
@@ -286,10 +289,17 @@ export function TeamPanel({ currentUserId, onClose }: Props) {
             )}
           </>
         ) : (
-          <p className="mt-5 text-xs text-slate-400">
-            Ask an owner or admin to invite people or change roles.
-          </p>
-        )}
+            <p className="mt-5 text-xs text-slate-400">
+              Ask an owner or admin to invite people or change roles.
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-white/10">
+          <button onClick={onClose} className="btn-ghost px-4 py-2 text-sm">
+            Done
+          </button>
+        </div>
       </div>
     </div>
   )
