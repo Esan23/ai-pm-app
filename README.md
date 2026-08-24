@@ -130,7 +130,7 @@ The **Status report** button on the board renders a Markdown summary over a 7/14
 - [x] **Phase 0 — trustworthy persistence**: normalized schema + RLS + realtime, row-level writes (no more last-write-wins), visible sync state, empty first-run with opt-in demo, inline task/story editing, Kanban tasks linked to stories
 - [x] **Phase 1 — trackable**: `due_date` / `completed_at` / assignee on tasks, project target date + % complete, an `activity_events` log behind a "what changed this week" view, board filters
 - [x] **Phase 2 — shareable**: teams, membership, roles (owner/admin/member/viewer) replacing the per-user RLS predicate, invite links, and Markdown status-report export
-- [ ] Azure DevOps + MCP integration spike
+- [x] **Azure DevOps integration spike** — [`docs/ado-integration-spike.md`](docs/ado-integration-spike.md); feasible, validated against the live REST API. Recommended next slice is a read-only import (~1 day, no Entra needed); two-way sync is gated on a Microsoft Entra app registration
 - [ ] Billing (Pricing currently advertises plans with no checkout; the landing sign-up modal is still simulated)
 
 ---
