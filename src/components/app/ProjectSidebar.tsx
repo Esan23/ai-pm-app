@@ -1,7 +1,13 @@
 import { useState } from 'react'
-import { PlusIcon, FolderIcon, TrashIcon } from '@heroicons/react/24/outline'
+import {
+  ArrowDownTrayIcon,
+  PlusIcon,
+  FolderIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline'
 import type { Workspace } from '../../lib/types'
 import { addProject, deleteProject, ensurePortfolio, useCanEdit } from '../../lib/store'
+import { AdoImportModal } from './AdoImportModal'
 
 interface SidebarProps {
   ws: Workspace
@@ -12,6 +18,7 @@ interface SidebarProps {
 export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) {
   const canEdit = useCanEdit()
   const [adding, setAdding] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [name, setName] = useState('')
 
   const portfolio = ws.portfolios[0]
@@ -112,6 +119,25 @@ export function ProjectSidebar({ ws, activeProjectId, onSelect }: SidebarProps) 
           </p>
         )}
       </nav>
+
+      {canEdit && (
+        <div className="border-t border-slate-200 px-2 py-2 dark:border-white/10">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-signal-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-signal-300"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4 shrink-0" />
+            Import from Azure DevOps
+          </button>
+        </div>
+      )}
+
+      {importOpen && (
+        <AdoImportModal
+          onClose={() => setImportOpen(false)}
+          onImported={(projectId) => projectId && onSelect(projectId)}
+        />
+      )}
     </aside>
   )
 }

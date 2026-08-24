@@ -794,6 +794,9 @@ export function addTask(
     status?: TaskStatus
     assignee?: string | null
     dueDate?: string | null
+    /** Only honoured for a task created as done — import preserves the real
+     *  completion time so history is not backdated to the moment of import. */
+    completedAt?: number | null
   } = {},
 ): Task {
   const status = opts.status ?? 'todo'
@@ -806,7 +809,7 @@ export function addTask(
     provider: opts.provider ?? 'Human',
     assignee: opts.assignee ?? null,
     dueDate: opts.dueDate ?? null,
-    completedAt: status === 'done' ? Date.now() : null,
+    completedAt: status === 'done' ? (opts.completedAt ?? Date.now()) : null,
     createdAt: Date.now(),
   }
   setWorkspace({ ...state, tasks: [...state.tasks, task] })
