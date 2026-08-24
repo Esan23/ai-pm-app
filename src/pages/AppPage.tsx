@@ -7,6 +7,7 @@ import {
   switchTeam,
   useCanEdit,
   useSyncState,
+  useTeamState,
   useWorkspace,
 } from '../lib/store'
 import { acceptInvite } from '../lib/teams'
@@ -21,6 +22,7 @@ import { AttributionSummary } from '../components/app/AttributionSummary'
 import { ActivityFeed } from '../components/app/ActivityFeed'
 import { EmptyWorkspace } from '../components/app/EmptyWorkspace'
 import { StatusReport } from '../components/app/StatusReport'
+import { LoadFailed, NoTeam, NothingShared } from '../components/app/WorkspaceFallbacks'
 import {
   BoardFilters,
   NO_FILTERS,
@@ -41,6 +43,7 @@ function Workspace() {
   const ws = useWorkspace()
   const sync = useSyncState()
   const { user, loading: authLoading } = useAuth()
+  const { teams, currentTeamId } = useTeamState()
   const canEdit = useCanEdit()
   const [activeId, setActiveId] = useState<string | null>(ws.projects[0]?.id ?? null)
   const [filters, setFilters] = useState<BoardFilterState>(NO_FILTERS)
@@ -213,14 +216,15 @@ function Workspace() {
                 </div>
               </div>
             </div>
+          ) : sync.status === 'error' ? (
+            // A failed load must not masquerade as an empty workspace.
+            <LoadFailed message={sync.message} />
+          ) : user && teams.length === 0 ? (
+            <NoTeam />
           ) : canEdit ? (
             <EmptyWorkspace onReady={setActiveId} />
           ) : (
-            <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center dark:border-white/15">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Nothing has been shared with you in this team yet.
-              </p>
-            </div>
+            <NothingShared teamName={teams.find((t) => t.id === currentTeamId)?.name ?? null} />
           )}
         </main>
       </div>
