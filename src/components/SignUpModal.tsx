@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { XMarkIcon, CheckCircleIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 import { Logo } from './Logo'
+import { MicrosoftSignIn } from './MicrosoftSignIn'
 
 type Result = 'magic' | 'sim'
 
@@ -130,7 +131,10 @@ export function SignUpModal() {
                 <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
                   Get your first project legible in minutes. No password, no credit card.
                 </p>
-                <form onSubmit={submit} className="mt-5 space-y-3">
+                <div className="mt-5">
+                  <MicrosoftSignIn onError={setError} />
+                </div>
+                <form onSubmit={submit} className="space-y-3">
                   <div className="relative">
                     <EnvelopeIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input

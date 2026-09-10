@@ -12,6 +12,17 @@ export default function AuthCallback() {
       navigate('/app', { replace: true })
       return
     }
+    // OAuth failures come back as query/hash params. Waiting six seconds to
+    // then blame an expired link would be wrong and unhelpful.
+    const params = new URLSearchParams(
+      window.location.search + '&' + window.location.hash.replace(/^#/, ''),
+    )
+    const oauthError = params.get('error_description') ?? params.get('error')
+    if (oauthError) {
+      setError(decodeURIComponent(oauthError.replace(/\+/g, ' ')))
+      return
+    }
+
     let done = false
     const finish = () => {
       if (done) return
@@ -26,7 +37,7 @@ export default function AuthCallback() {
     })
     // Safety net if no session materializes.
     const t = setTimeout(() => {
-      if (!done) setError('Sign-in link expired or invalid. Please try again.')
+      if (!done) setError('That sign-in did not complete. The link may have expired — please try again.')
     }, 6000)
     return () => {
       sub.subscription.unsubscribe()
