@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { XMarkIcon, EnvelopeIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { Logo } from '../Logo'
+import { MicrosoftSignIn } from '../MicrosoftSignIn'
 import { useAuth } from '../../lib/auth'
 
 export function SignInModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -82,10 +83,12 @@ export function SignInModal({ open, onClose }: { open: boolean; onClose: () => v
                   Sign in to sync
                 </h3>
                 <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
-                  Save your workspace and pick it up on any device. We&apos;ll email you a magic link —
-                  no password.
+                  Save your workspace and pick it up on any device.
                 </p>
-                <form onSubmit={submit} className="mt-5 space-y-3">
+                <div className="mt-5">
+                  <MicrosoftSignIn onError={setError} />
+                </div>
+                <form onSubmit={submit} className="space-y-3">
                   <div className="relative">
                     <EnvelopeIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input
