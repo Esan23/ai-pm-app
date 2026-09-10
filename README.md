@@ -58,26 +58,7 @@ Routing is `react-router-dom` v7: `/` (landing), `/app` (workspace), `/auth/call
 Optional and **off by default** — the app is fully usable as a guest. When `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set, the workspace syncs to a signed-in account:
 
 - **Magic-link auth** (`src/lib/auth.tsx`, `src/lib/supabase.ts`) — passwordless email sign-in via `signInWithOtp`. Sessions persist (`persistSession` + `autoRefreshToken`), so a returning visitor stays signed in; the header shows **"Checking session…"** until auth resolves rather than claiming "Sign in", which previously prompted people to request a link they didn't need.
-- **Continue with Microsoft** (`src/components/MicrosoftSignIn.tsx`) — Entra / Azure AD sign-in for returning users who don't want an email round trip. The button **appears only when the provider is actually enabled**, detected from Supabase's `/auth/v1/settings`, so there is no feature flag to remember and no dead button before it's configured. To enable: register an app in Microsoft Entra, add `https://<project>.supabase.co/auth/v1/callback` as its redirect URI, then paste the client ID and secret into Supabase → Authentication → Providers → Azure.
-- **Per-user persistence, one row at a time** — the workspace lives in real `portfolios` / `projects` / `stories` / `tasks` tables (schema, RLS, and the JSONB back-fill in `supabase/migrations/20260823022606_normalized_workspace.sql`). `src/lib/remote.ts` maps rows to domain objects; `src/lib/store.ts` applies every mutation optimistically to local state and enqueues a **single-row** write.
-
-  This replaced a whole-workspace JSONB blob that was rewritten on an 800 ms debounce, which made concurrent edits last-write-wins — a second tab or device silently erased the first. Writes are now serialized through one promise chain (so a child never reaches the server before its parent), inbound **realtime** events merge remote changes in, and a failed write surfaces in the header and re-syncs from the server instead of being swallowed.
-- **Honest save state** — the header shows Guest / Loading / Saving / Saved / Not saved (with retry), backed by `useSyncState()`.
-- **Migration on sign-in** — a guest workspace is pushed up on first sign-in; a cache belonging to the signed-in account is replaced by server state; a cache belonging to a different account is discarded on sign-out, so one person's work never lands in the next person's browser. Supabase is code-split into its own chunk, so the landing bundle is unaffected.
-
-### Teams (Phase 2)
-
-Work belongs to a **team**, not a person. `user_id` survives on every content row as "created by"; `team_id` is what RLS checks.
-
-- **Roles** — `owner` (everything, including deleting the team), `admin` (edit + manage members), `member` (edit content), `viewer` (read-only). The UI hides what your role can't do; RLS enforces it independently, so a viewer who calls an update anyway gets zero rows back.
-- **Invites** — an admin invites an email address and gets a link to send. Redeeming goes through `accept_team_invite(token)`, which checks the token **and** that it was issued to the caller's own address, so a forwarded link does nothing. Email delivery isn't wired up yet.
-- **Safety rails in the database, not just the UI** — a trigger refuses to remove or demote a team's last owner, and `activity_events` still has no update or delete policy at any role.
-- **Realtime is keyed on team**, so a teammate's edit arrives; the Phase 1 filter (`user_id`) would have ignored every change made by anyone else.
-- Teammate names and emails come from `public.profiles` through one narrow additive policy: you can read a profile only if you already share a team with that person.
-
-### Status report
-
-The **Status report** button on the board renders a Markdown summary over a 7/14/30-day window — percent complete, what shipped, what's in flight, what's overdue, what's due next, story rollups, the attribution mix for the window, and derived risks — with copy and download. It's a pure function over the data (`src/lib/report.ts`): no model call, nothing to hallucinate. An AI-written narrative on top is a natural follow-up.
+- **One-click sign-in** (`src/components/SocialSignIn.tsx`) — GitHub, Google or Microsoft, for returning users who don't want an email round trip. Buttons **appear only for providers that are actually enabled**, detected from Supabase's `/auth/v1/settings`, so there's no feature flag to remember and no dead button before one is configured. Which provider to enable is a practical question rather than a technical one: registering the app depends on accounts and admin rights, and a personal Microsoft account often cannot register an Entra app at all. **GitHub is usually the fastest** — a personal account, no admin, no verification review. Enable one in Supabase → Authentication → Providers, using `https://<project>.supabase.co/auth/v1/callback` as the redirect URI.
 
 **To enable (one-time):** create a Supabase project → run the migrations in `supabase/migrations/` → in Netlify set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the publishable/anon key) → in Supabase **Authentication → URL Configuration**, set the Site URL and add `https://cairnpmai.netlify.app/auth/callback` (and `http://localhost:5180/auth/callback` for local) to the redirect allow-list.
 

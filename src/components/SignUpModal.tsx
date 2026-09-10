@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { XMarkIcon, CheckCircleIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 import { Logo } from './Logo'
-import { MicrosoftSignIn } from './MicrosoftSignIn'
+import { SocialSignIn } from './SocialSignIn'
 
 type Result = 'magic' | 'sim'
 
@@ -132,7 +132,7 @@ export function SignUpModal() {
                   Get your first project legible in minutes. No password, no credit card.
                 </p>
                 <div className="mt-5">
-                  <MicrosoftSignIn onError={setError} />
+                  <SocialSignIn onError={setError} />
                 </div>
                 <form onSubmit={submit} className="space-y-3">
                   <div className="relative">
