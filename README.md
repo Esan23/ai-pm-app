@@ -2,9 +2,11 @@
 
 > The system of record for AI projects — track what every model and tool actually shipped, from user story to deployed agent.
 
-A project management application purpose-built for the **AI-product lifecycle** (web app → autonomous agent), with a portfolio → project → user story → task hierarchy, AI-assisted user-story generation, a Kanban execution surface, Azure DevOps pipeline sync, and **provider-agnostic attribution** of work produced by Copilot, ChatGPT, Gemini, and Claude.
+A project management application purpose-built for the **AI-product lifecycle** (web app → autonomous agent), with a portfolio → project → user story → task hierarchy, assisted user-story capture, a Kanban execution surface, **read-only Azure DevOps work-item import**, and **provider-agnostic attribution** of work produced by Copilot, ChatGPT, Gemini, and Claude.
 
-**Stack (planned):** React front end · backend + integration layer TBD (ADO / LLM providers via MCP).
+*Pipeline sync and two-way Azure DevOps sync are on the roadmap, not shipped — see [Status](#status).*
+
+**Live at [cairnpmai.netlify.app](https://cairnpmai.netlify.app/)** · Vite + React 18 + TypeScript + Tailwind · Supabase (Postgres, RLS, realtime, magic-link auth) · Netlify Functions · deployed from `main` on every merge.
 
 ---
 
@@ -83,21 +85,29 @@ The **Status report** button on the board renders a Markdown summary over a 7/14
 
 ```
 .
-├── README.md                          # This file
-├── LICENSE
-├── .gitignore
 ├── index.html · vite.config.ts · tailwind.config.js · netlify.toml
 ├── src/
-│   ├── App.tsx · main.tsx · index.css
-│   ├── hooks/useTheme.ts
-│   └── components/                     # Navbar, Hero, Problem, HowItWorks, Features,
-│       │                              # SocialProof, Pricing, FinalCTA, Footer, SignUpModal…
-│       └── ContextCollapseVisual.tsx   # signature hero animation
+│   ├── pages/          LandingPage · AppPage · AdminPage · AuthCallback
+│   ├── components/     landing sections (Hero, Pricing, Features…)
+│   │   ├── app/        the workspace: KanbanBoard, TaskDetail, StoryList,
+│   │   │               ProjectHeader, ActivityFeed, BoardFilters, TeamPanel,
+│   │   │               StatusReport, AdoImportModal, SyncStatus, fallbacks
+│   │   ├── admin/      admin console sections
+│   │   └── ui/         Toast · ConfirmDialog · Pagination
+│   ├── lib/            store.ts (workspace state + write queue)
+│   │                   remote.ts (row ↔ domain, realtime)
+│   │                   teams.ts · auth.ts · types.ts · dates.ts
+│   │                   report.ts (status report) · adoImport.ts
+│   │                   capture.ts · seed.ts · admin*.ts
+│   └── hooks/          useTheme · useModal
+├── netlify/functions/  capture.ts · ado-import.ts · admin-users.ts
+├── supabase/migrations/  applied schema, mirrored from the live database
+├── scripts/            ado-import-spike.mjs · generate-og.mjs
 └── docs/
-    └── research/
-        ├── avatar-problem-aware.md     # Problem-Aware customer avatar (Schwartz framework)
-        ├── diary-problem-aware.md      # Persona-voice diary: before / during / after product use
-        └── competitive-teardown.md     # MECE competitive analysis + whitespace map
+    ├── ado-integration-spike.md    Azure DevOps feasibility + mapping
+    ├── admin-page-spec.md · admin-backend-plan.md
+    ├── brand-design-system.md · landing-b2c-spec.md
+    └── research/       avatar · diary · competitive teardown
 ```
 
 ---
@@ -114,15 +124,33 @@ The **Status report** button on the board renders a Markdown summary over a 7/14
 
 ## Status
 
-**Phase: Research & Discovery** — customer and market research complete; product spec and architecture pending.
+**Shipped and running in production.** Three phases are live, each deployed from `main` and verified against the live database:
 
-### Roadmap (stub)
+| Phase | What it fixed |
+|---|---|
+| **0 — trustworthy persistence** | The workspace was one JSONB blob per user, rewritten on a debounce with no conflict check, so a second tab silently erased the first. Replaced with normalized tables, RLS, realtime, and single-row writes through a serialized queue. |
+| **1 — trackable** | A task had a status and a created date and nothing else, so no time-based question could be answered. Added due dates, owners, completion timestamps, project targets, an activity log, and board filters. |
+| **2 — shareable** | Access was `auth.uid() = user_id` — single-player. Replaced everywhere with team membership and roles (owner / admin / member / viewer), invite links, and a Markdown status report. |
+
+Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the read-only import it recommended.
+
+**Verified, not assumed.** Role restrictions, the completion-timestamp trigger, the append-only activity log, and cross-user isolation were each proven by SQL impersonation against the live database; the workspace paths were exercised in a browser. Four defects were found and fixed this way, two of them in production.
+
+**Known gaps, stated plainly:**
+
+- `ANTHROPIC_API_KEY` is not set, so **Capture runs its local heuristic rather than Claude**. The UI labels every result "via Claude" or "demo heuristic", so nothing is misrepresented to a user.
+- **Invite emails are not sent** — an admin copies the link and sends it.
+- **Re-importing the same Azure DevOps project creates a second copy**; there is no link back to ADO yet.
+- Billing is advertised on the pricing page but **no checkout exists**; everyone has full access free.
+- Five Phase 2 behaviours still need a second account to verify end to end (invite round trip, forwarded-link refusal, viewer read-only, live demotion, last-owner protection).
+
+### Roadmap
 - [x] Problem-Aware customer avatar
 - [x] Competitive teardown + whitespace analysis
 - [x] Persona-voice diary (messaging input)
 - [ ] Remaining awareness-stage avatars (Schwartz set)
 - [ ] Product spec / PRD (feature set, MoSCoW scope)
-- [ ] Data model (hierarchy + provider-attribution schema)
+- [x] Data model (hierarchy + provider-attribution schema) — built across Phases 0–2; see `supabase/migrations/`
 - [x] Marketing landing page (Vite + React + Tailwind)
 - [x] App MVP scaffold — /app workspace (hierarchy, Kanban, AI capture, attribution) in guest mode
 - [x] Server-side LLM capture (Claude via a Netlify function, demo fallback)
@@ -131,7 +159,11 @@ The **Status report** button on the board renders a Markdown summary over a 7/14
 - [x] **Phase 1 — trackable**: `due_date` / `completed_at` / assignee on tasks, project target date + % complete, an `activity_events` log behind a "what changed this week" view, board filters
 - [x] **Phase 2 — shareable**: teams, membership, roles (owner/admin/member/viewer) replacing the per-user RLS predicate, invite links, and Markdown status-report export
 - [x] **Azure DevOps integration spike** — [`docs/ado-integration-spike.md`](docs/ado-integration-spike.md); feasible, validated against the live REST API. Recommended next slice is a read-only import (~1 day, no Entra needed); two-way sync is gated on a Microsoft Entra app registration
-- [ ] Billing (Pricing currently advertises plans with no checkout; the landing sign-up modal is still simulated)
+- [x] **Azure DevOps read-only import** (spike slice A) — paste org/project/PAT, preview, import; no Entra registration required
+- [ ] Azure DevOps two-way sync — gated on a Microsoft Entra app registration
+- [ ] Re-import as refresh rather than duplicate (`ado_id` link)
+- [ ] Invite email delivery (needs SMTP; a free tier covers beta volume)
+- [ ] Billing — the pricing page advertises plans with no checkout
 
 ---
 
