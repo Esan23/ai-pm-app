@@ -22,7 +22,7 @@ const NEW_TEAM = '__new'
 
 export function AppHeader() {
   const { theme, toggle } = useTheme()
-  const { user, configured, signOut } = useAuth()
+  const { user, loading: authLoading, configured, signOut } = useAuth()
   const { teams, currentTeamId, role } = useTeamState()
   const canEdit = useCanEdit()
   const [signInOpen, setSignInOpen] = useState(false)
@@ -62,7 +62,7 @@ export function AppHeader() {
             </select>
           )}
 
-          <SyncStatus />
+          <SyncStatus authLoading={configured && authLoading} />
 
           {user && !canEdit && (
             <span
@@ -118,7 +118,17 @@ export function AppHeader() {
             {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
           </button>
 
-          {configured ? (
+          {configured && authLoading ? (
+            // Auth has not resolved yet. Offering "Sign in" here tells a
+            // signed-in user they are signed out, and the magic link they then
+            // request is one they never needed.
+            <span
+              className="inline-flex h-9 items-center rounded-lg px-3 text-xs text-slate-400"
+              aria-live="polite"
+            >
+              Checking session…
+            </span>
+          ) : configured ? (
             user ? (
               <button
                 onClick={signOut}
