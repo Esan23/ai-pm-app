@@ -81,14 +81,23 @@ function uid(prefix: string): string {
  */
 function normalizeWorkspace(ws: Workspace): Workspace {
   return {
-    portfolios: ws.portfolios ?? [],
-    projects: (ws.projects ?? []).map((p) => ({ ...p, targetDate: p.targetDate ?? null })),
-    stories: ws.stories ?? [],
+    portfolios: (ws.portfolios ?? []).map((p) => ({
+      ...p,
+      adoOrg: p.adoOrg ?? null,
+      adoProject: p.adoProject ?? null,
+    })),
+    projects: (ws.projects ?? []).map((p) => ({
+      ...p,
+      targetDate: p.targetDate ?? null,
+      adoId: p.adoId ?? null,
+    })),
+    stories: (ws.stories ?? []).map((s) => ({ ...s, adoId: s.adoId ?? null })),
     tasks: (ws.tasks ?? []).map((t) => ({
       ...t,
       assignee: t.assignee ?? null,
       dueDate: t.dueDate ?? null,
       completedAt: t.completedAt ?? null,
+      adoId: t.adoId ?? null,
     })),
     activity: ws.activity ?? [],
   }
@@ -340,7 +349,7 @@ function sortActivity(events: ActivityEvent[]): ActivityEvent[] {
   return [...events].sort((a, b) => b.createdAt - a.createdAt).slice(0, ACTIVITY_LOCAL_CAP)
 }
 
-type TaskPatch = Partial<Omit<Task, 'id' | 'createdAt' | 'projectId'>>
+type TaskPatch = Partial<Omit<Task, 'id' | 'createdAt'>>
 
 const describeDate = (day: string | null): string => (day ? formatDay(day) : 'no date')
 
@@ -621,8 +630,19 @@ export async function createTeamAndSwitch(name: string): Promise<Team | null> {
 
 // ---- mutations ----------------------------------------------------------
 
-export function addPortfolio(name: string, description = ''): Portfolio {
-  const p: Portfolio = { id: uid('pf'), name, description, createdAt: Date.now() }
+export function addPortfolio(
+  name: string,
+  description = '',
+  ado: { org: string; project: string } | null = null,
+): Portfolio {
+  const p: Portfolio = {
+    id: uid('pf'),
+    name,
+    description,
+    adoOrg: ado?.org ?? null,
+    adoProject: ado?.project ?? null,
+    createdAt: Date.now(),
+  }
   setWorkspace({ ...state, portfolios: [...state.portfolios, p] })
   enqueue(() => insertPortfolio(p, writeContext()!))
   logActivity({
@@ -640,13 +660,19 @@ export function ensurePortfolio(): Portfolio {
   return state.portfolios[0] ?? addPortfolio('My Portfolio')
 }
 
-export function addProject(portfolioId: string, name: string, description = ''): Project {
+export function addProject(
+  portfolioId: string,
+  name: string,
+  description = '',
+  opts: { targetDate?: string | null; adoId?: number | null } = {},
+): Project {
   const p: Project = {
     id: uid('pr'),
     portfolioId,
     name,
     description,
-    targetDate: null,
+    targetDate: opts.targetDate ?? null,
+    adoId: opts.adoId ?? null,
     createdAt: Date.now(),
   }
   setWorkspace({ ...state, projects: [...state.projects, p] })
@@ -663,7 +689,7 @@ export function addProject(portfolioId: string, name: string, description = ''):
 
 export function updateProject(
   id: string,
-  patch: Partial<Pick<Project, 'name' | 'description' | 'targetDate'>>,
+  patch: Partial<Pick<Project, 'name' | 'description' | 'targetDate' | 'adoId'>>,
 ) {
   const prev = state.projects.find((p) => p.id === id)
   if (!prev) return
@@ -720,9 +746,17 @@ export function deleteProject(id: string) {
 
 export function addStory(
   projectId: string,
-  fields: Pick<Story, 'title' | 'asA' | 'iWant' | 'soThat' | 'priority'>,
+  fields: Pick<Story, 'title' | 'asA' | 'iWant' | 'soThat' | 'priority'> & {
+    adoId?: number | null
+  },
 ): Story {
-  const story: Story = { id: uid('st'), projectId, createdAt: Date.now(), ...fields }
+  const story: Story = {
+    id: uid('st'),
+    projectId,
+    createdAt: Date.now(),
+    adoId: null,
+    ...fields,
+  }
   setWorkspace({ ...state, stories: [...state.stories, story] })
   enqueue(() => insertStory(story, writeContext()!))
   logActivity({
@@ -737,7 +771,7 @@ export function addStory(
 
 export function updateStory(
   id: string,
-  patch: Partial<Pick<Story, 'title' | 'asA' | 'iWant' | 'soThat' | 'priority'>>,
+  patch: Partial<Pick<Story, 'title' | 'asA' | 'iWant' | 'soThat' | 'priority' | 'projectId'>>,
 ) {
   const prev = state.stories.find((s) => s.id === id)
   if (!prev) return
@@ -797,6 +831,7 @@ export function addTask(
     /** Only honoured for a task created as done — import preserves the real
      *  completion time so history is not backdated to the moment of import. */
     completedAt?: number | null
+    adoId?: number | null
   } = {},
 ): Task {
   const status = opts.status ?? 'todo'
@@ -810,6 +845,7 @@ export function addTask(
     assignee: opts.assignee ?? null,
     dueDate: opts.dueDate ?? null,
     completedAt: status === 'done' ? (opts.completedAt ?? Date.now()) : null,
+    adoId: opts.adoId ?? null,
     createdAt: Date.now(),
   }
   setWorkspace({ ...state, tasks: [...state.tasks, task] })
@@ -833,7 +869,10 @@ export function updateTask(id: string, patch: TaskPatch) {
   // (the database enforces the same rule with a trigger).
   const full: TaskPatch = { ...patch }
   if (patch.status !== undefined && patch.status !== prev.status) {
-    full.completedAt = patch.status === 'done' ? Date.now() : null
+    // An explicit completedAt wins over "now" — an import carrying Azure
+    // DevOps' real ClosedDate must not backdate history to the moment of
+    // refresh, or the status report claims week-old work shipped today.
+    full.completedAt = patch.status === 'done' ? (patch.completedAt ?? Date.now()) : null
   }
 
   const change = describeTaskPatch(prev, patch)
