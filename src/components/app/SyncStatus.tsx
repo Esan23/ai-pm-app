@@ -11,11 +11,23 @@ import { retrySync, useSyncState } from '../../lib/store'
  * store swallowed every write failure, so "I typed it, therefore it's saved"
  * was an assumption rather than a fact.
  */
-export function SyncStatus() {
+export function SyncStatus({ authLoading = false }: { authLoading?: boolean }) {
   const sync = useSyncState()
 
   const base =
     'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold'
+
+  // Before auth resolves we do not know whether this is a guest at all, and
+  // "Guest · saved in this browser" is a confident claim to make about someone
+  // who may be signed in.
+  if (authLoading) {
+    return (
+      <span className={`${base} bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300`}>
+        <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
+        <span className="hidden sm:inline">Checking session…</span>
+      </span>
+    )
+  }
 
   if (sync.status === 'guest') {
     return (
