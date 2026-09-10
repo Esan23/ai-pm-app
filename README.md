@@ -34,7 +34,7 @@ npm run build    # type-check + production build → dist/
 npm run preview  # preview the production build
 ```
 
-Sections: hero (with a "scattered context → one legible plan" animation), the daily-tax problem, how it works (capture → deconstruct → track → next), features (incl. provider-agnostic AI attribution + Azure DevOps sync), social proof, pricing (Free / Pro / Enterprise), and a final CTA. The sign-up flow is front-end-only (simulated) — wire it to real auth / a waitlist before launch.
+Sections: hero (with a "scattered context → one legible plan" animation), the daily-tax problem, how it works (capture → deconstruct → track → next), features (incl. provider-agnostic AI attribution + Azure DevOps sync), social proof, pricing (Free / Pro / Enterprise), and a final CTA. The sign-up CTA sends a real magic link when Supabase is configured (`SignUpModal` calls `signInWithOtp`); it only simulates success in an unconfigured build.
 
 ## App Workspace (`/app`)
 
@@ -48,6 +48,7 @@ A working MVP of the product, reachable from the landing "Open app" / "Start fre
 - **Activity feed** — every mutation writes an `activity_events` row, so the right rail answers **"what changed this week"** (grouped by day, with a Show-all toggle). A multi-field save reads as one line — `Done → In progress · assigned to Ana` — rather than five. Written client-side, so guest mode keeps a history too.
 - **Board filters** — search, owner, attribution, and due-date (overdue / due within 7 days / no due date), with a match count. Filters narrow the board only; the story rollups and attribution mix always summarize the whole project.
 - **Starts empty.** A new workspace opens on a "Track your first project" state; the demo portfolio is opt-in ("explore with demo data") rather than seeded, so nobody has to delete fictional data before tracking their own.
+- **Send feedback** — a button in the app header opens a one-field form, available to **guests as well as signed-in users**: the people who haven't signed up yet are exactly the ones whose first impression is worth hearing. The route, team and viewport are attached automatically so nobody has to ask "which screen?". Stored in `public.feedback`, append-only (no update or delete policy at any role), readable only by platform admins.
 - Runs entirely in **guest mode**, persisted to `localStorage` (`src/lib/store.ts`), so it's demoable with no backend.
 
 Routing is `react-router-dom` v7: `/` (landing), `/app` (workspace), `/auth/callback` (magic-link return) — all lazy-loaded.

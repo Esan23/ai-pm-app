@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRightOnRectangleIcon,
+  ChatBubbleLeftRightIcon,
   EyeIcon,
   MoonIcon,
   PlusIcon,
@@ -15,6 +16,7 @@ import { createTeamAndSwitch, switchTeam, useCanEdit, useTeamState } from '../..
 import { SignInModal } from './SignInModal'
 import { SyncStatus } from './SyncStatus'
 import { TeamPanel } from './TeamPanel'
+import { FeedbackModal } from './FeedbackModal'
 
 const NEW_TEAM = '__new'
 
@@ -25,6 +27,7 @@ export function AppHeader() {
   const canEdit = useCanEdit()
   const [signInOpen, setSignInOpen] = useState(false)
   const [teamOpen, setTeamOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   const onTeamChange = (value: string) => {
     if (value === NEW_TEAM) {
@@ -73,6 +76,16 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Available to guests as well: the people who have not signed up are
+              exactly the ones whose first impression is worth hearing. */}
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+            title="Send feedback"
+          >
+            <ChatBubbleLeftRightIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Feedback</span>
+          </button>
           {user && currentTeamId && (
             <button
               onClick={() => setTeamOpen(true)}
@@ -131,6 +144,14 @@ export function AppHeader() {
       <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
       {teamOpen && user && (
         <TeamPanel currentUserId={user.id} onClose={() => setTeamOpen(false)} />
+      )}
+      {feedbackOpen && (
+        <FeedbackModal
+          userId={user?.id ?? null}
+          userEmail={user?.email ?? null}
+          teamId={currentTeamId}
+          onClose={() => setFeedbackOpen(false)}
+        />
       )}
     </header>
   )
