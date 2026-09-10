@@ -50,6 +50,8 @@ export const toPortfolio = (r: Row): Portfolio => ({
   id: r.id,
   name: r.name,
   description: r.description ?? '',
+  adoOrg: r.ado_org ?? null,
+  adoProject: r.ado_project ?? null,
   createdAt: ms(r.created_at),
 })
 
@@ -59,6 +61,7 @@ export const toProject = (r: Row): Project => ({
   name: r.name,
   description: r.description ?? '',
   targetDate: r.target_date ?? null,
+  adoId: r.ado_id ?? null,
   createdAt: ms(r.created_at),
 })
 
@@ -70,6 +73,7 @@ export const toStory = (r: Row): Story => ({
   iWant: r.i_want ?? '',
   soThat: r.so_that ?? '',
   priority: r.priority,
+  adoId: r.ado_id ?? null,
   createdAt: ms(r.created_at),
 })
 
@@ -83,6 +87,7 @@ export const toTask = (r: Row): Task => ({
   assignee: r.assignee ?? null,
   dueDate: r.due_date ?? null,
   completedAt: msOrNull(r.completed_at),
+  adoId: r.ado_id ?? null,
   createdAt: ms(r.created_at),
 })
 
@@ -103,6 +108,8 @@ const portfolioRow = (p: Portfolio, ctx: WriteContext): Row => ({
   team_id: ctx.teamId,
   name: p.name,
   description: p.description,
+  ado_org: p.adoOrg,
+  ado_project: p.adoProject,
   created_at: iso(p.createdAt),
 })
 
@@ -114,6 +121,7 @@ const projectRow = (p: Project, ctx: WriteContext): Row => ({
   name: p.name,
   description: p.description,
   target_date: p.targetDate,
+  ado_id: p.adoId,
   created_at: iso(p.createdAt),
 })
 
@@ -127,6 +135,7 @@ const storyRow = (s: Story, ctx: WriteContext): Row => ({
   i_want: s.iWant,
   so_that: s.soThat,
   priority: s.priority,
+  ado_id: s.adoId,
   created_at: iso(s.createdAt),
 })
 
@@ -142,6 +151,7 @@ const taskRow = (t: Task, ctx: WriteContext): Row => ({
   assignee: t.assignee,
   due_date: t.dueDate,
   completed_at: t.completedAt === null ? null : iso(t.completedAt),
+  ado_id: t.adoId,
   created_at: iso(t.createdAt),
 })
 
@@ -179,6 +189,9 @@ const COLUMN_OF: Record<string, string> = {
   dueDate: 'due_date',
   targetDate: 'target_date',
   completedAt: 'completed_at',
+  adoId: 'ado_id',
+  adoOrg: 'ado_org',
+  adoProject: 'ado_project',
 }
 
 const ENCODE: Record<string, (v: unknown) => unknown> = {

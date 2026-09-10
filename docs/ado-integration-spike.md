@@ -178,7 +178,9 @@ Decisions made while building, beyond what §3 assumed:
 
 Verified against the live API — 41 work items → 7 projects, 20 stories, 12 tasks, all 9 done tasks carrying real `ClosedDate`, and the PAT absent from the response. Failure paths return usable messages: a bad token, a missing field, an injection-shaped org name, an unknown project, and a GET all fail distinctly.
 
-Still true of slice A: **re-importing the same project creates a second copy.** There is no link back to ADO, which is what §9.2 and a future `ado_id` column would fix.
+**Since resolved:** re-import now refreshes rather than duplicates. `ado_id` links each row to its work item — `(team_id, ado_id)` unique — and the portfolio records the `ado_org`/`ado_project` it came from.
+
+The merge policy is the part worth stating: **Azure DevOps wins where it has a value; Cairn keeps what ADO does not track.** Two fields make this necessary rather than pedantic. `dueDate` maps to `FinishDate`, which is usually empty, so letting an empty value win would wipe every due date set in Cairn. `provider` comes from a tag most work items will never carry, so overwriting it would reset the attribution this product exists to record — on every refresh. Rows ADO no longer returns are left alone rather than deleted; a work item can leave a query for reasons that are not deletion.
 
 ## 9. Open questions
 

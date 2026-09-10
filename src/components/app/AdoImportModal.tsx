@@ -5,7 +5,13 @@ import {
   ExclamationTriangleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
-import { applyAdoImport, fetchAdoPreview, type AdoPreview } from '../../lib/adoImport'
+import {
+  applyAdoImport,
+  fetchAdoPreview,
+  planImport,
+  type AdoPreview,
+  type ImportPlan,
+} from '../../lib/adoImport'
 import { useModal } from '../../hooks/useModal'
 
 const FIELD =
@@ -31,6 +37,7 @@ export function AdoImportModal({ onClose, onImported }: Props) {
   const [project, setProject] = useState('')
   const [pat, setPat] = useState('')
   const [preview, setPreview] = useState<AdoPreview | null>(null)
+  const [plan, setPlan] = useState<ImportPlan | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,10 +45,13 @@ export function AdoImportModal({ onClose, onImported }: Props) {
     setBusy(true)
     setError(null)
     try {
-      setPreview(await fetchAdoPreview(org, project, pat))
+      const next = await fetchAdoPreview(org, project, pat)
+      setPreview(next)
+      setPlan(planImport(next))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not read that project.')
       setPreview(null)
+      setPlan(null)
     } finally {
       setBusy(false)
     }
@@ -143,22 +153,49 @@ export function AdoImportModal({ onClose, onImported }: Props) {
                 {preview.counts.read} work items read from {preview.org}/{preview.project}
               </p>
 
-              <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
-                {[
-                  ['Projects', preview.counts.projects],
-                  ['Stories', preview.counts.stories],
-                  ['Tasks', preview.counts.tasks],
-                ].map(([label, n]) => (
-                  <div key={label} className="rounded-lg bg-slate-50 py-2 dark:bg-white/5">
-                    <dd className="font-display text-h5 font-bold text-slate-900 dark:text-white">
-                      {n}
-                    </dd>
-                    <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      {label}
-                    </dt>
-                  </div>
-                ))}
-              </dl>
+              <table className="mt-3 w-full text-center text-sm">
+                <thead>
+                  <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="py-1 text-left font-semibold"> </th>
+                    <th className="py-1">Projects</th>
+                    <th className="py-1">Stories</th>
+                    <th className="py-1">Tasks</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-900 dark:text-white">
+                  <tr>
+                    <th className="py-1 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      New
+                    </th>
+                    <td className="py-1 font-display font-bold">{plan?.created.projects ?? 0}</td>
+                    <td className="py-1 font-display font-bold">{plan?.created.stories ?? 0}</td>
+                    <td className="py-1 font-display font-bold">{plan?.created.tasks ?? 0}</td>
+                  </tr>
+                  <tr>
+                    <th className="py-1 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Updated
+                    </th>
+                    <td className="py-1 font-display font-bold">{plan?.updated.projects ?? 0}</td>
+                    <td className="py-1 font-display font-bold">{plan?.updated.stories ?? 0}</td>
+                    <td className="py-1 font-display font-bold">{plan?.updated.tasks ?? 0}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {plan?.refreshing && (
+                <p className="mt-3 rounded-lg bg-signal-500/10 px-3 py-2 text-[11px] leading-relaxed text-signal-800 dark:text-signal-200">
+                  Refreshing an earlier import of this project — matched work is updated in place,
+                  not duplicated. Azure DevOps wins for title, status and parentage; owners and due
+                  dates it doesn&apos;t set, and attribution you chose here, are kept.
+                </p>
+              )}
+              {(plan?.goneFromAdo ?? 0) > 0 && (
+                <p className="mt-2 text-[11px] text-slate-400">
+                  {plan?.goneFromAdo} previously imported task
+                  {plan?.goneFromAdo === 1 ? '' : 's'} no longer returned by Azure DevOps — left
+                  alone rather than deleted.
+                </p>
+              )}
 
               {preview.counts.skipped > 0 && (
                 <p className="mt-3 text-[11px] text-slate-400">
@@ -175,8 +212,6 @@ export function AdoImportModal({ onClose, onImported }: Props) {
 
               <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] leading-relaxed text-slate-400 dark:border-white/10">
                 Epics become the description on each project, since Cairn shows one portfolio.
-                Importing the same project twice creates a second copy — there is no link back to
-                Azure DevOps yet.
               </p>
             </div>
           )}
@@ -189,7 +224,7 @@ export function AdoImportModal({ onClose, onImported }: Props) {
           {preview ? (
             <button onClick={commit} className="btn-primary px-4 py-2 text-sm">
               <ArrowDownTrayIcon className="h-4 w-4" />
-              Import {preview.counts.tasks + preview.counts.stories} items
+              {plan?.refreshing ? 'Refresh' : `Import ${preview.counts.tasks + preview.counts.stories} items`}
             </button>
           ) : (
             <button

@@ -140,7 +140,6 @@ Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the 
 
 - `ANTHROPIC_API_KEY` is not set, so **Capture runs its local heuristic rather than Claude**. The UI labels every result "via Claude" or "demo heuristic", so nothing is misrepresented to a user.
 - **Invite emails are not sent** — an admin copies the link and sends it.
-- **Re-importing the same Azure DevOps project creates a second copy**; there is no link back to ADO yet.
 - Billing is advertised on the pricing page but **no checkout exists**; everyone has full access free.
 - Five Phase 2 behaviours still need a second account to verify end to end (invite round trip, forwarded-link refusal, viewer read-only, live demotion, last-owner protection).
 
@@ -159,9 +158,8 @@ Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the 
 - [x] **Phase 1 — trackable**: `due_date` / `completed_at` / assignee on tasks, project target date + % complete, an `activity_events` log behind a "what changed this week" view, board filters
 - [x] **Phase 2 — shareable**: teams, membership, roles (owner/admin/member/viewer) replacing the per-user RLS predicate, invite links, and Markdown status-report export
 - [x] **Azure DevOps integration spike** — [`docs/ado-integration-spike.md`](docs/ado-integration-spike.md); feasible, validated against the live REST API. Recommended next slice is a read-only import (~1 day, no Entra needed); two-way sync is gated on a Microsoft Entra app registration
-- [x] **Azure DevOps read-only import** (spike slice A) — paste org/project/PAT, preview, import; no Entra registration required
+- [x] **Azure DevOps read-only import** (spike slice A) — paste org/project/PAT, preview, import; re-importing refreshes in place rather than duplicating; no Entra registration required
 - [ ] Azure DevOps two-way sync — gated on a Microsoft Entra app registration
-- [ ] Re-import as refresh rather than duplicate (`ado_id` link)
 - [ ] Invite email delivery (needs SMTP; a free tier covers beta volume)
 - [ ] Billing — the pricing page advertises plans with no checkout
 

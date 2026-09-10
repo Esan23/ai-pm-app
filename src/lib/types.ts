@@ -25,6 +25,8 @@ export interface Task {
   dueDate: string | null
   /** Set when the task enters Done, cleared when it leaves. */
   completedAt: number | null
+  /** Azure DevOps work item id, when this row came from an import. */
+  adoId: number | null
   createdAt: number
 }
 
@@ -36,6 +38,7 @@ export interface Story {
   iWant: string
   soThat: string
   priority: Priority
+  adoId: number | null
   createdAt: number
 }
 
@@ -46,6 +49,7 @@ export interface Project {
   description: string
   /** Calendar day the project is aimed at, `YYYY-MM-DD`. */
   targetDate: string | null
+  adoId: number | null
   createdAt: number
 }
 
@@ -53,6 +57,9 @@ export interface Portfolio {
   id: string
   name: string
   description: string
+  /** Where an imported portfolio came from; both null unless imported. */
+  adoOrg: string | null
+  adoProject: string | null
   createdAt: number
 }
 
