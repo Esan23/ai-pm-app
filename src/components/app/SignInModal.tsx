@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { XMarkIcon, EnvelopeIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { Logo } from '../Logo'
-import { MicrosoftSignIn } from '../MicrosoftSignIn'
+import { SocialSignIn } from '../SocialSignIn'
 import { useAuth } from '../../lib/auth'
 
 export function SignInModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -86,7 +86,7 @@ export function SignInModal({ open, onClose }: { open: boolean; onClose: () => v
                   Save your workspace and pick it up on any device.
                 </p>
                 <div className="mt-5">
-                  <MicrosoftSignIn onError={setError} />
+                  <SocialSignIn onError={setError} />
                 </div>
                 <form onSubmit={submit} className="space-y-3">
                   <div className="relative">
