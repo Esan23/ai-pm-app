@@ -7,6 +7,8 @@ export interface NavItem {
   key: string
   label: string
   icon: ComponentType<SVGProps<SVGSVGElement>>
+  /** Count of unseen items, shown as a pill. Hidden when absent or zero. */
+  badge?: number
 }
 
 interface Props {
@@ -38,6 +40,14 @@ export function AdminSidebar({ items, active, onSelect, open, onClose }: Props) 
           >
             <it.icon className="h-5 w-5 shrink-0" strokeWidth={2} />
             {it.label}
+            {it.badge ? (
+              <span
+                className="ml-auto rounded-full bg-signal-500/15 px-2 py-0.5 text-[11px] font-semibold text-signal-700 dark:text-signal-300"
+                aria-label={`${it.badge} new`}
+              >
+                {it.badge > 99 ? '99+' : it.badge}
+              </span>
+            ) : null}
           </button>
         )
       })}

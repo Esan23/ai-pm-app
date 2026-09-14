@@ -2,10 +2,13 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { supabase, isSupabaseConfigured } from './supabase'
 import {
   PLANS,
+  SEED_FEEDBACK,
   SEED_USAGE,
   type AdminRoleKey,
   type AdminUser,
   type AuditEntry,
+  type FeedbackEntry,
+  type FeedbackRowContext,
   type Integration,
   type IntegrationStatus,
   type Permission,
@@ -53,6 +56,7 @@ export interface UnifiedAdminState {
   integrations: Integration[]
   settings: AdminSettings
   rolePermissions: RolePermissionMap
+  feedback: FeedbackEntry[]
 }
 
 // ---- Live store (module singleton, useSyncExternalStore) ----------------
@@ -85,6 +89,7 @@ let liveState: UnifiedAdminState = {
   integrations: [],
   settings: DEFAULT_SETTINGS,
   rolePermissions: EMPTY_PERMS,
+  feedback: [],
 }
 
 const listeners = new Set<() => void>()
@@ -111,7 +116,7 @@ export async function refreshLive(): Promise<void> {
   if (!supabase || inFlight) return
   inFlight = true
   try {
-    const [profiles, staff, audit, plans, subs, usage, integrations, settings, rolePerms] =
+    const [profiles, staff, audit, plans, subs, usage, integrations, settings, rolePerms, feedback] =
       await Promise.all([
         supabase.from('profiles').select('id,email,full_name,plan,status,last_active_at').order('created_at'),
         supabase.from('admin_users').select('user_id,role_key'),
@@ -126,6 +131,13 @@ export async function refreshLive(): Promise<void> {
         supabase.from('integrations').select('id,name,category,status').order('category').order('name'),
         supabase.from('platform_settings').select('settings').eq('id', true).maybeSingle(),
         supabase.from('role_permissions').select('role_key,permission_key'),
+        // RLS returns nothing rather than an error when this admin lacks
+        // view:feedback, so no separate permission check is needed here.
+        supabase
+          .from('feedback')
+          .select('id,user_id,email,message,context,created_at')
+          .order('created_at', { ascending: false })
+          .limit(500),
       ])
 
     const roleByUser = new Map(
@@ -202,6 +214,15 @@ export async function refreshLive(): Promise<void> {
       if (Array.isArray(list)) list.push(rp.permission_key as Permission)
     }
 
+    const feedbackRows: FeedbackEntry[] = (feedback.data ?? []).map((f) => ({
+      id: f.id as string,
+      userId: (f.user_id as string) ?? null,
+      email: (f.email as string) ?? null,
+      message: (f.message as string) ?? '',
+      createdAt: String(f.created_at),
+      context: (f.context as FeedbackRowContext) ?? {},
+    }))
+
     liveState = {
       ready: true,
       users,
@@ -213,6 +234,7 @@ export async function refreshLive(): Promise<void> {
       integrations: (integrations.data ?? []) as Integration[],
       settings: { ...DEFAULT_SETTINGS, ...((settings.data?.settings as Partial<AdminSettings>) ?? {}) },
       rolePermissions: perms,
+      feedback: feedbackRows,
     }
     emit()
   } finally {
@@ -250,6 +272,7 @@ export function useUnifiedAdminData(): UnifiedAdminState & { refresh: () => void
       integrations: demo.integrations,
       settings: demo.settings,
       rolePermissions: demo.rolePermissions,
+      feedback: SEED_FEEDBACK,
       refresh: () => {},
     }
   }
@@ -391,4 +414,40 @@ export async function updateSettingUnified<K extends keyof AdminSettings>(
     .eq('id', true)
   throwIfError(error)
   await refreshLive()
+}
+
+// ---- Feedback: "new since you last looked" ------------------------------
+
+const FEEDBACK_SEEN_KEY = 'cairn.admin.feedbackSeenAt'
+
+/**
+ * When this browser last opened the feedback inbox.
+ *
+ * Per-browser rather than per-account on purpose: the feedback table is
+ * append-only by design — no row may be updated at any role — so there is
+ * nowhere to record "read" without giving somebody the power to edit
+ * feedback. A local high-water mark buys the badge without that trade.
+ */
+export function feedbackSeenAt(): string | null {
+  try {
+    return localStorage.getItem(FEEDBACK_SEEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function markFeedbackSeen(at: string): void {
+  try {
+    localStorage.setItem(FEEDBACK_SEEN_KEY, at)
+  } catch {
+    // Private window, or storage blocked. The badge just keeps counting.
+  }
+}
+
+/** How many entries arrived after `seenAt`. Everything counts when it is null. */
+export function countNewFeedback(rows: FeedbackEntry[], seenAt: string | null): number {
+  if (!seenAt) return rows.length
+  const cutoff = Date.parse(seenAt)
+  if (Number.isNaN(cutoff)) return rows.length
+  return rows.filter((r) => Date.parse(r.createdAt) > cutoff).length
 }

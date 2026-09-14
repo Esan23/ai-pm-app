@@ -18,6 +18,7 @@ export type Permission =
   | 'view:usage' | 'export:usage'
   | 'view:roles' | 'manage:roles' | 'view:audit_logs' | 'export:audit_logs' | 'manage:security'
   | 'view:integrations' | 'manage:integrations' | 'manage:settings'
+  | 'view:feedback'
 
 export interface AdminRole {
   key: AdminRoleKey
@@ -42,7 +43,7 @@ export const ROLES: Record<AdminRoleKey, AdminRole> = {
     key: 'platform_admin',
     displayName: 'Platform Administrator',
     description: 'Full user, subscription, integration, and settings management.',
-    permissions: [...USER_PERMS, ...SUB_PERMS, ...SYS_PERMS, ...SEC_VIEW],
+    permissions: [...USER_PERMS, ...SUB_PERMS, ...SYS_PERMS, ...SEC_VIEW, 'view:feedback'],
   },
   billing_admin: {
     key: 'billing_admin',
@@ -54,7 +55,7 @@ export const ROLES: Record<AdminRoleKey, AdminRole> = {
     key: 'support_admin',
     displayName: 'Support Administrator',
     description: 'Assist customers: lookup, resend invites, unlock, adjust seats within policy.',
-    permissions: ['view:users', 'update:users', 'view:subscriptions', 'view:usage'],
+    permissions: ['view:users', 'update:users', 'view:subscriptions', 'view:usage', 'view:feedback'],
   },
   auditor: {
     key: 'auditor',
@@ -70,6 +71,9 @@ export const ALL_PERMISSIONS: { category: string; perms: Permission[] }[] = [
   { category: 'Usage & Analytics', perms: ['view:usage', 'export:usage'] },
   { category: 'Security & Compliance', perms: ['view:roles', 'manage:roles', 'view:audit_logs', 'export:audit_logs', 'manage:security'] },
   { category: 'System Configuration', perms: ['view:integrations', 'manage:integrations', 'manage:settings'] },
+  // Deliberately not granted to billing or audit roles: feedback is prose a
+  // user wrote, often with their email attached, and neither role needs it.
+  { category: 'Product Feedback', perms: ['view:feedback'] },
 ]
 
 export function can(role: AdminRoleKey, perm: Permission): boolean {
@@ -133,6 +137,29 @@ export interface AuditEntry {
   resource: string
   timestamp: string
   ip: string
+}
+
+/**
+ * One row of the feedback table, as the console reads it.
+ *
+ * Everything except the message and the timestamp can be missing: a guest
+ * leaves no user id, and giving an email is optional on purpose.
+ */
+export interface FeedbackEntry {
+  id: string
+  userId: string | null
+  email: string | null
+  message: string
+  /** ISO timestamp, straight from the row. Formatted at render time. */
+  createdAt: string
+  context: FeedbackRowContext
+}
+
+export interface FeedbackRowContext {
+  route?: string
+  teamId?: string | null
+  viewport?: string
+  signedIn?: boolean
 }
 
 export type IntegrationStatus = 'connected' | 'available' | 'error'
@@ -202,6 +229,38 @@ export const SEED_INTEGRATIONS: Integration[] = [
   { name: 'Linear', category: 'Issues', status: 'available' },
   { name: 'Jira', category: 'Issues', status: 'available' },
   { name: 'Notion', category: 'Docs', status: 'error' },
+]
+
+// Demo mode only. Every other section of the console shows seed rows when
+// Supabase is not configured, and an inbox that is always empty teaches nobody
+// what the inbox is for. Live mode never falls back to these.
+export const SEED_FEEDBACK: FeedbackEntry[] = [
+  {
+    id: 'fb_seed_1',
+    userId: 'u2',
+    email: 'priya@vela.dev',
+    message:
+      'The AI attribution on a task is the reason we picked this. What I cannot do yet is see it for a whole sprint at once — I want one number for "how much of this sprint was Claude".',
+    createdAt: '2026-06-28T15:12:00.000Z',
+    context: { route: '/app', teamId: 'team_vela', viewport: '1512x848', signedIn: true },
+  },
+  {
+    id: 'fb_seed_2',
+    userId: null,
+    email: null,
+    message:
+      'Tried it without signing up. Lost everything when I opened it on my phone later. I assumed guest mode synced.',
+    createdAt: '2026-06-27T22:40:00.000Z',
+    context: { route: '/app', teamId: null, viewport: '390x844', signedIn: false },
+  },
+  {
+    id: 'fb_seed_3',
+    userId: 'u5',
+    email: 'sam@orbital.app',
+    message: 'Importing from Azure DevOps worked first try. Pricing page does not say what the free tier actually includes.',
+    createdAt: '2026-06-26T09:03:00.000Z',
+    context: { route: '/pricing', teamId: 'team_orbital', viewport: '1280x800', signedIn: true },
+  },
 ]
 
 export const usd = (n: number) =>
