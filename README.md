@@ -34,7 +34,7 @@ npm run build    # type-check + production build → dist/
 npm run preview  # preview the production build
 ```
 
-Sections: hero (with a "scattered context → one legible plan" animation), the daily-tax problem, how it works (capture → deconstruct → track → next), features (incl. provider-agnostic AI attribution + Azure DevOps sync), social proof, pricing (Free / Pro / Enterprise), and a final CTA. The sign-up CTA sends a real magic link when Supabase is configured (`SignUpModal` calls `signInWithOtp`); it only simulates success in an unconfigured build.
+Sections: hero (with a "scattered context → one legible plan" animation), the daily-tax problem, how it works (capture → deconstruct → track → next), features (incl. provider-agnostic AI attribution + Azure DevOps sync), social proof, pricing (free during beta, with the unbuilt features listed beside the shipped ones), and a final CTA. The sign-up CTA sends a real magic link when Supabase is configured (`SignUpModal` calls `signInWithOtp`); it only simulates success in an unconfigured build.
 
 ## App Workspace (`/app`)
 
@@ -123,7 +123,7 @@ Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the 
 
 - `ANTHROPIC_API_KEY` is not set, so **Capture runs its local heuristic rather than Claude**. The UI labels every result "via Claude" or "demo heuristic", so nothing is misrepresented to a user.
 - **Invite emails are not sent** — an admin copies the link and sends it.
-- Billing is advertised on the pricing page but **no checkout exists**; everyone has full access free.
+- **No checkout exists**; everyone has full access free. The pricing page now says exactly that, and lists the unbuilt features beside the shipped ones rather than advertising plans nobody can buy.
 - Five Phase 2 behaviours still need a second account to verify end to end (invite round trip, forwarded-link refusal, viewer read-only, live demotion, last-owner protection).
 
 ### Roadmap
@@ -144,7 +144,7 @@ Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the 
 - [x] **Azure DevOps read-only import** (spike slice A) — paste org/project/PAT, preview, import; re-importing refreshes in place rather than duplicating; no Entra registration required
 - [ ] Azure DevOps two-way sync — gated on a Microsoft Entra app registration
 - [ ] Invite email delivery (needs SMTP; a free tier covers beta volume)
-- [ ] Billing — the pricing page advertises plans with no checkout
+- [ ] Billing — no checkout exists; until one does, pricing reads "free during beta" and names the gaps
 
 ---
 

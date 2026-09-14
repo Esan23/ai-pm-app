@@ -50,7 +50,7 @@ export function Hero() {
             className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
           >
             <a href="#start" className="btn-primary btn-lg">
-              Schedule a demo
+              Start free
             </a>
             <a href="#demo" className="btn-ghost btn-lg">
               See how it works
@@ -63,7 +63,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.28 }}
             className="mt-5 text-sm text-slate-500 dark:text-slate-400"
           >
-            Free consultation · No credit card required · 30-day trial
+            Free during beta · No card required · Works without an account
           </motion.p>
 
           {/* Trust indicators */}

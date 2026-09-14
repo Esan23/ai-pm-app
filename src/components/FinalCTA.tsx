@@ -1,7 +1,9 @@
 import { CheckIcon } from '@heroicons/react/24/outline'
 import { Reveal } from './Reveal'
 
-const trust = ['30-day trial', 'No credit card', 'Cancel anytime', 'Setup in minutes']
+// Four claims the product can actually keep. The previous set promised a
+// 30-day trial and cancellation for a product with no billing at all.
+const trust = ['Free during beta', 'No card required', 'No account needed', 'Setup in minutes']
 
 export function FinalCTA() {
   return (
@@ -15,8 +17,8 @@ export function FinalCTA() {
                 Ready to stop being the human source of truth?
               </h2>
               <p className="mx-auto mt-5 max-w-xl text-lg text-signal-50/90">
-                Join the teams using Cairn to turn scattered AI work into one legible plan. Start your
-                free trial today — no credit card required.
+                Turn scattered AI work into one legible plan. Free while Cairn is in beta — no card,
+                and no trial clock to run out.
               </p>
 
               <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -24,13 +26,13 @@ export function FinalCTA() {
                   href="/app"
                   className="inline-flex items-center justify-center rounded-xl bg-white px-7 py-4 text-base font-semibold text-signal-700 shadow-lg transition hover:bg-signal-50"
                 >
-                  Start free trial
+                  Start free
                 </a>
                 <a
                   href="#demo"
                   className="inline-flex items-center justify-center rounded-xl border border-white/40 px-7 py-4 text-base font-semibold text-white transition hover:bg-white/10"
                 >
-                  Schedule a demo
+                  See how it works
                 </a>
               </div>
 
