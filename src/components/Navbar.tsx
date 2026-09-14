@@ -64,7 +64,7 @@ export function Navbar() {
             Sign in
           </Link>
           <a href="#start" className="btn-primary hidden sm:inline-flex">
-            Request a demo
+            Start free
           </a>
           <button
             onClick={() => setOpen((o) => !o)}
@@ -98,7 +98,7 @@ export function Navbar() {
               Sign in
             </Link>
             <a href="#start" onClick={() => setOpen(false)} className="btn-primary mt-2">
-              Request a demo
+              Start free
             </a>
           </div>
         </div>
