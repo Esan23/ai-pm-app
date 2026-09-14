@@ -76,7 +76,7 @@ Release in scope is **Beta 1: the product is usable, honestly described, and a s
 | S1 | Capture produces a backlog using Claude rather than the local heuristic | **Open** — needs a funded `ANTHROPIC_API_KEY` (§10, D3). The UI labels which one ran, so nothing is misrepresented meanwhile. |
 | S2 | Two-way Azure DevOps sync — work items round-trip, with optimistic concurrency | **Open** — proven feasible in the [spike](ado-integration-spike.md); blocked on a Microsoft Entra app registration (§10, D4) |
 | S3 | Cost and tokens per work item, not just which provider | **Open** — the teardown names this as half the differentiator, and only the provider half is built |
-| S4 | Legacy `workspaces` table removed once nothing reads it | **Open** — story 148 |
+| S4 | Legacy `workspaces` table removed once nothing reads it | **Shipped** — dropped 2026-09-13 after every item in its last row was matched by id in the normalized tables |
 | S5 | Remaining Schwartz awareness-stage avatars | **Open** — story 149 |
 
 ### Could have
@@ -108,7 +108,7 @@ Release in scope is **Beta 1: the product is usable, honestly described, and a s
 | `/admin` console | Dashboard, users, **feedback**, subscriptions, security (role matrix + audit log), system config. Live against the database when Supabase is configured; a demo gate with seed data otherwise. |
 | Auth | Magic link, OAuth (auto-detected per provider), guest mode |
 | Integrations | Azure DevOps **read-only import** — org/project/PAT, preview, import; re-importing refreshes in place rather than duplicating |
-| Backend | Supabase Postgres, 23 tables, RLS on every user-facing one, realtime keyed by team; three Netlify functions (`capture`, `ado-import`, `admin-users`) |
+| Backend | Supabase Postgres, 22 tables, RLS on every user-facing one, realtime keyed by team; three Netlify functions (`capture`, `ado-import`, `admin-users`) |
 
 **Verified, not assumed.** Role restrictions, the completion-timestamp trigger, the append-only activity log, cross-team isolation, and the new `view:feedback` gate were each proven by SQL impersonation against the live database. Four defects were found this way, two of them in production.
 
@@ -124,7 +124,7 @@ Guarantees worth naming because they are enforced in the database rather than th
 - Partial unique indexes on `(team_id, ado_id)` — re-importing an Azure DevOps project refreshes rows instead of duplicating them.
 - SECURITY DEFINER helpers (`is_team_member`, `team_can_write`, `admin_has`) — membership checks that do not recurse through the policies that call them.
 
-One table is legacy: `workspaces`, the pre-Phase-0 JSONB blob. S4 removes it.
+No legacy tables remain. `workspaces`, the pre-Phase-0 JSONB blob, was the last one and was dropped on 2026-09-13 (S4); there is now exactly one schema and no question about which is real.
 
 ## 8. Non-functional requirements
 

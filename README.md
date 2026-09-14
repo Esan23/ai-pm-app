@@ -112,7 +112,7 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 
 | Phase | What it fixed |
 |---|---|
-| **0 — trustworthy persistence** | The workspace was one JSONB blob per user, rewritten on a debounce with no conflict check, so a second tab silently erased the first. Replaced with normalized tables, RLS, realtime, and single-row writes through a serialized queue. |
+| **0 — trustworthy persistence** | The workspace was one JSONB blob per user, rewritten on a debounce with no conflict check, so a second tab silently erased the first. Replaced with normalized tables, RLS, realtime, and single-row writes through a serialized queue. The old `workspaces` table was kept as a rollback net and has now been dropped. |
 | **1 — trackable** | A task had a status and a created date and nothing else, so no time-based question could be answered. Added due dates, owners, completion timestamps, project targets, an activity log, and board filters. |
 | **2 — shareable** | Access was `auth.uid() = user_id` — single-player. Replaced everywhere with team membership and roles (owner / admin / member / viewer), invite links, and a Markdown status report. |
 
