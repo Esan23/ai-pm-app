@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   HomeIcon,
   UsersIcon,
+  ChatBubbleLeftRightIcon,
   CreditCardIcon,
   ShieldCheckIcon,
   Cog6ToothIcon,
@@ -12,12 +13,20 @@ import { AdminSignIn } from '../components/admin/AdminSignIn'
 import { AdminSignInLive, AdminNotAuthorized, AdminLoading } from '../components/admin/AdminSignInLive'
 import { AdminDashboard } from '../components/admin/AdminDashboard'
 import { UserManagement } from '../components/admin/UserManagement'
+import { FeedbackInbox } from '../components/admin/FeedbackInbox'
 import { SubscriptionUsage } from '../components/admin/SubscriptionUsage'
 import { SecurityCompliance } from '../components/admin/SecurityCompliance'
 import { SystemConfig } from '../components/admin/SystemConfig'
 import { ToastProvider } from '../components/ui/Toast'
 import { ROLES, type AdminRoleKey, type Permission } from '../lib/admin'
-import { useCanUnified, useUnifiedAdminData, isLiveAdmin } from '../lib/adminData'
+import {
+  useCanUnified,
+  useUnifiedAdminData,
+  isLiveAdmin,
+  countNewFeedback,
+  feedbackSeenAt,
+  markFeedbackSeen,
+} from '../lib/adminData'
 import { useAdminSession, signOutAdmin } from '../lib/adminAuth'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -30,6 +39,7 @@ interface Section extends NavItem {
 const SECTIONS: Section[] = [
   { key: 'dashboard', label: 'Dashboard', icon: HomeIcon, perm: null },
   { key: 'users', label: 'Users', icon: UsersIcon, perm: 'view:users' },
+  { key: 'feedback', label: 'Feedback', icon: ChatBubbleLeftRightIcon, perm: 'view:feedback' },
   { key: 'subscriptions', label: 'Subscriptions', icon: CreditCardIcon, perm: 'view:subscriptions' },
   { key: 'security', label: 'Security', icon: ShieldCheckIcon, perm: 'view:audit_logs' },
   { key: 'system', label: 'System', icon: Cog6ToothIcon, perm: 'view:integrations' },
@@ -91,8 +101,14 @@ function AdminShell({
   onSignOut: () => void
 }) {
   const can = useCanUnified()
-  const { ready } = useUnifiedAdminData()
+  const { ready, feedback } = useUnifiedAdminData()
   const [active, setActive] = useState('dashboard')
+  // Two marks, deliberately. `seenAt` drives the sidebar badge and moves to
+  // "now" the moment the section is opened, so the pill clears immediately.
+  // `highlightSince` stays where it was, so the entries that were new when he
+  // clicked keep their New tag while he is reading them.
+  const [seenAt, setSeenAt] = useState<string | null>(() => feedbackSeenAt())
+  const [highlightSince, setHighlightSince] = useState<string | null>(seenAt)
   const [search, setSearch] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const isSuper = adminRole === 'super_admin'
@@ -101,6 +117,22 @@ function AdminShell({
   const role: AdminRoleKey = isSuper ? previewRole : adminRole
   const actor = adminName
   const allowed = SECTIONS.filter((s) => s.perm === null || can(role, s.perm))
+  const newFeedback = countNewFeedback(feedback, seenAt)
+  const navItems = allowed.map((s) =>
+    s.key === 'feedback' && active !== 'feedback' ? { ...s, badge: newFeedback } : s,
+  )
+
+  const onSelect = (key: string) => {
+    if (key === 'feedback') {
+      // Marked on open, not on read: the badge answers "has anything arrived
+      // since I last looked", which is a question about looking.
+      const now = new Date().toISOString()
+      markFeedbackSeen(now)
+      setHighlightSince(seenAt)
+      setSeenAt(now)
+    }
+    setActive(key)
+  }
 
   useEffect(() => {
     if (ready && !allowed.some((s) => s.key === active)) setActive('dashboard')
@@ -127,9 +159,9 @@ function AdminShell({
 
         <div className="flex flex-1">
           <AdminSidebar
-            items={allowed}
+            items={navItems}
             active={active}
-            onSelect={setActive}
+            onSelect={onSelect}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
           />
@@ -138,6 +170,7 @@ function AdminShell({
             <div className="mx-auto w-full max-w-[1180px]">
               {active === 'dashboard' && <AdminDashboard />}
               {active === 'users' && <UserManagement role={role} actor={actor} search={search} />}
+              {active === 'feedback' && <FeedbackInbox seenAt={highlightSince} />}
               {active === 'subscriptions' && <SubscriptionUsage role={role} />}
               {active === 'security' && <SecurityCompliance role={role} actor={actor} />}
               {active === 'system' && <SystemConfig role={role} actor={actor} />}
