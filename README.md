@@ -87,6 +87,7 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 ├── supabase/migrations/  applied schema, mirrored from the live database
 ├── scripts/            ado-import-spike.mjs · generate-og.mjs
 └── docs/
+    ├── product-spec.md             what Cairn is · MoSCoW scope for Beta 1
     ├── ado-integration-spike.md    Azure DevOps feasibility + mapping
     ├── admin-page-spec.md · admin-backend-plan.md
     ├── brand-design-system.md · landing-b2c-spec.md
@@ -131,7 +132,7 @@ Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the 
 - [x] Competitive teardown + whitespace analysis
 - [x] Persona-voice diary (messaging input)
 - [ ] Remaining awareness-stage avatars (Schwartz set)
-- [ ] Product spec / PRD (feature set, MoSCoW scope)
+- [x] **Product spec / PRD** — [`docs/product-spec.md`](docs/product-spec.md); MoSCoW scope for Beta 1, plus a baseline of where usage actually stands. Written after three phases shipped, so it describes the product rather than guessing at it
 - [x] Data model (hierarchy + provider-attribution schema) — built across Phases 0–2; see `supabase/migrations/`
 - [x] Marketing landing page (Vite + React + Tailwind)
 - [x] App MVP scaffold — /app workspace (hierarchy, Kanban, AI capture, attribution) in guest mode
