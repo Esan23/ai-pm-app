@@ -15,17 +15,18 @@ The documents here are copies, kept with the product they describe:
 
 ## Where it stands
 
-**52 tests · 44 executed and passing · 8 declared gaps · 39 seconds.**
+**53 tests · 44 executed and passing · 9 declared gaps · 40 seconds.**
 
 Coverage is organised by work item, not by file: a test named `TC_147_04` covers
-story 147, and that name is what the traceability matrix reads. Twenty of the
-fifty stories, tasks and bugs in the backlog carry at least one test; the matrix
-names the thirty that do not.
+story 147, and that name is what the traceability matrix reads. Twenty-one of the
+fifty-nine stories, tasks and bugs in the backlog carry at least one test; the
+matrix names the thirty-eight that do not.
 
-The eight gaps are not missing tests. They exist, they are ignored with the
+The nine gaps are not missing tests. They exist, they are ignored with the
 reason written into the test, and they appear in Test Explorer and in the matrix
-as gaps — every one of them blocked on the same thing: a second authenticated
-account. That is task 128, and it is the last item between Phase 2 and closed.
+as gaps. Eight are blocked on the same thing — a second authenticated account,
+which is task 128 and the last item between Phase 2 and closed. The ninth is the
+regression test for bug 151, waiting for the fix.
 
 ## Two rules the suite is built around
 
@@ -40,7 +41,8 @@ careless run writes cannot be deleted by anyone afterwards.
 control a test can only reach by CSS class is a control a screen reader user
 cannot reach either. It has already produced one finding — the execution board's
 `<section>` carries no accessible name, so it is not a landmark anyone can
-navigate to. That is tracked as a bug rather than worked around in the test.
+navigate to. That is **bug 151**, with `TC_151_01` already written and ignored
+against it: un-ignoring the test is how the fix gets verified.
 
 ## Running it
 

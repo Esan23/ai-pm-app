@@ -147,14 +147,14 @@ TC_147_04 is the one that matters. A page can say "free during beta" at the top 
 
 | Metric | Formula | This run |
 |---|---|---|
-| Tests | | **52** |
-| Executed | run / total | **44 / 52** (85%) |
+| Tests | | **53** |
+| Executed | run / total | **44 / 53** (83%) |
 | Pass rate | passed / executed | **44 / 44** (100%) |
-| Declared gaps | ignored with a reason | **8** |
-| Work-item coverage | leaf items with ≥1 test | **20 / 50** (40%) |
-| Duration | | **39 s** |
+| Declared gaps | ignored with a reason | **9** |
+| Work-item coverage | leaf items with ≥1 test | **21 / 59** (36%) |
+| Duration | | **40 s** |
 
-The coverage figure is deliberately unflattering. Thirty leaf work items have no automated test — most are closed Sprint 1 items whose behaviour is covered indirectly, but some are real gaps, and [traceability.md](traceability.md) names each one.
+The coverage figure is deliberately unflattering. Thirty-eight leaf work items have no automated test — most are closed Sprint 1 items whose behaviour is covered indirectly, but some are real gaps, and [traceability.md](traceability.md) names each one.
 
 ---
 
@@ -162,7 +162,7 @@ The coverage figure is deliberately unflattering. Thirty leaf work items have no
 
 | # | Finding | Severity | Status |
 |---|---|---|---|
-| F-1 | The execution-board `<section>` has no accessible name, so it is not a landmark a screen reader can jump to. Found by locating it by role and failing. | P3 | To raise in the app repository |
+| F-1 | The execution-board `<section>` has no accessible name, so it is not a landmark a screen reader can jump to. Found by locating it by role and failing. | P3 | **Bug 151.** TC_151_01 is written and ignored; un-ignore it when the bug is fixed and it becomes the regression test |
 | F-2 | The pricing page at 375px in a *desktop* window overflows by 11px, because a classic scrollbar takes 15px from the content box. On a real phone, scrollbars are overlays and it fits. Not a product defect — but a reminder that "narrow window" is not "phone". | — | Closed: test moved to a mobile context |
 
 ---

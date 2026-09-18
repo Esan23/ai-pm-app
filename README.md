@@ -119,7 +119,7 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 
 Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the read-only import it recommended.
 
-**Automated regression suite.** [`Cairn_PM_Test`](docs/qa/README.md) — Playwright for .NET + NUnit, run from Visual Studio against the deployed site. 52 tests organised by Azure DevOps work item; 44 executed and passing in 39 seconds, and 8 declared gaps that stay visible because they are blocked on a second account rather than quietly missing. The [traceability matrix](docs/qa/traceability.md) maps every work item to the tests that cover it — and names the thirty that none do.
+**Automated regression suite.** [`Cairn_PM_Test`](docs/qa/README.md) — Playwright for .NET + NUnit, run from Visual Studio against the deployed site. 53 tests organised by Azure DevOps work item; 44 executed and passing in 40 seconds, and 9 declared gaps that stay visible because they are blocked — on a second account, or on a fix — rather than quietly missing. The [traceability matrix](docs/qa/traceability.md) maps every work item to the tests that cover it, and names the thirty-eight that none do.
 
 **Verified, not assumed.** Role restrictions, the completion-timestamp trigger, the append-only activity log, and cross-user isolation were each proven by SQL impersonation against the live database; the workspace paths were exercised in a browser. Four defects were found and fixed this way, two of them in production.
 
