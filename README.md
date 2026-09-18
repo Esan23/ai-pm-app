@@ -88,6 +88,7 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 ├── scripts/            ado-import-spike.mjs · generate-og.mjs
 └── docs/
     ├── product-spec.md             what Cairn is · MoSCoW scope for Beta 1
+    ├── qa/                         test plan · traceability matrix · manual checks
     ├── ado-integration-spike.md    Azure DevOps feasibility + mapping
     ├── admin-page-spec.md · admin-backend-plan.md
     ├── brand-design-system.md · landing-b2c-spec.md
@@ -117,6 +118,8 @@ Optional and **off by default** — the app is fully usable as a guest. When `VI
 | **2 — shareable** | Access was `auth.uid() = user_id` — single-player. Replaced everywhere with team membership and roles (owner / admin / member / viewer), invite links, and a Markdown status report. |
 
 Plus an [Azure DevOps integration spike](docs/ado-integration-spike.md) and the read-only import it recommended.
+
+**Automated regression suite.** [`Cairn_PM_Test`](docs/qa/README.md) — Playwright for .NET + NUnit, run from Visual Studio against the deployed site. 52 tests organised by Azure DevOps work item; 44 executed and passing in 39 seconds, and 8 declared gaps that stay visible because they are blocked on a second account rather than quietly missing. The [traceability matrix](docs/qa/traceability.md) maps every work item to the tests that cover it — and names the thirty that none do.
 
 **Verified, not assumed.** Role restrictions, the completion-timestamp trigger, the append-only activity log, and cross-user isolation were each proven by SQL impersonation against the live database; the workspace paths were exercised in a browser. Four defects were found and fixed this way, two of them in production.
 
